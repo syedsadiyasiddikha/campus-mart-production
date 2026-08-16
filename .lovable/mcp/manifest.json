@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://xwabpcvhkxsvrphjmspk.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "campus-mart-connect",
+      "version": "0.1.0",
+      "title": "Campus Mart Connect"
+    },
+    "tools": [
+      {
+        "name": "search_listings",
+        "title": "Search listings",
+        "description": "Search the Campus Mart marketplace for items listed by students.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "query": {
+              "description": "Free-text search over item name and description.",
+              "type": "string"
+            },
+            "category": {
+              "description": "Category filter, e.g. Books, Electronics.",
+              "type": "string"
+            },
+            "maxPrice": {
+              "description": "Maximum price in INR.",
+              "type": "number"
+            },
+            "limit": {
+              "description": "Max results to return (default 20).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_listing",
+        "title": "Get listing",
+        "description": "Get full details for one Campus Mart listing, including seller name and department.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Listing id."
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_listing",
+        "title": "Create listing",
+        "description": "List a new item for sale on Campus Mart as the signed-in student.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Item title."
+            },
+            "price": {
+              "type": "number",
+              "description": "Price in INR."
+            },
+            "category": {
+              "type": "string",
+              "description": "Category, e.g. Books, Electronics, Cycles."
+            },
+            "condition": {
+              "type": "string",
+              "description": "Condition, e.g. Like New, Good, Fair."
+            },
+            "description": {
+              "description": "Item description.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "price",
+            "category",
+            "condition"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "delete_listing",
+        "title": "Delete listing",
+        "description": "Delete one of the signed-in student's own Campus Mart listings.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Listing id to delete."
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "my_listings",
+        "title": "My listings",
+        "description": "List the items the signed-in student has posted for sale on Campus Mart.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "my_wishlist",
+        "title": "My wishlist",
+        "description": "Show the items the signed-in student saved to their Campus Mart wishlist.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "save_to_wishlist",
+        "title": "Save to wishlist",
+        "description": "Add a Campus Mart listing to the signed-in student's wishlist.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "productId": {
+              "type": "string",
+              "description": "Listing id to save."
+            }
+          },
+          "required": [
+            "productId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "my_orders",
+        "title": "My orders",
+        "description": "List the Campus Mart orders the signed-in student has placed or received.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

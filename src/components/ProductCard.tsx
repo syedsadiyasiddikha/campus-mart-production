@@ -1,0 +1,57 @@
+import { Link } from "@tanstack/react-router";
+import { Heart } from "lucide-react";
+import { formatINR, type Product } from "@/lib/data";
+import { useStore } from "@/lib/store";
+
+export function ProductCard({ product }: { product: Product }) {
+  const { isWishlisted, toggleWishlist } = useStore();
+  const wished = isWishlisted(product.id);
+
+  return (
+    <div className="group card-soft overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 hover:-translate-y-1 flex flex-col">
+      <Link
+        to="/product/$id"
+        params={{ id: product.id }}
+        className="relative block aspect-square bg-muted overflow-hidden"
+      >
+        <img
+          src={product.image}
+          alt={product.name}
+          loading="lazy"
+          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            toggleWishlist(product.id);
+          }}
+          className="absolute top-3 right-3 h-9 w-9 rounded-full bg-card/95 backdrop-blur shadow-sm flex items-center justify-center hover:scale-110 transition"
+          aria-label="Wishlist"
+        >
+          <Heart
+            className={`h-4 w-4 transition-colors ${wished ? "fill-orange text-orange" : "text-muted-foreground"}`}
+          />
+        </button>
+        <div className="absolute top-3 left-3 text-[10px] uppercase tracking-wider font-semibold bg-card/95 backdrop-blur px-2 py-1 rounded-full text-brand">
+          {product.condition}
+        </div>
+      </Link>
+      <div className="p-4 flex-1 flex flex-col gap-2">
+        <Link to="/product/$id" params={{ id: product.id }} className="font-semibold text-sm line-clamp-2 hover:text-brand-2 transition">
+          {product.name}
+        </Link>
+        <div className="flex items-baseline gap-2">
+          <span className="text-lg font-bold text-foreground">{formatINR(product.price)}</span>
+        </div>
+        <div className="text-xs text-muted-foreground line-clamp-1">by {product.seller}</div>
+        <Link
+          to="/product/$id"
+          params={{ id: product.id }}
+          className="mt-2 inline-flex items-center justify-center h-9 rounded-lg bg-secondary hover:bg-brand hover:text-brand-foreground text-secondary-foreground text-sm font-medium transition-colors"
+        >
+          View Details
+        </Link>
+      </div>
+    </div>
+  );
+}
