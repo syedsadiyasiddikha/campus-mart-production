@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff, KeyRound } from "lucide-react";
 import logo from "@/assets/logo.jpg";
-import { useStore } from "@/lib/store";
+import { useStore, getProductionUrl } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — Campus Mart" }] }),
@@ -12,11 +13,10 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function AuthPage() {
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signup");
   const [showPw, setShowPw] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -44,6 +44,27 @@ function AuthPage() {
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!EMAIL_RE.test(trimmedEmail)) return setError("Please enter a valid email address.");
+
+    if (mode === "forgot") {
+      setBusy(true);
+      try {
+        const redirectUrl = `${getProductionUrl()}/reset-password`;
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+          redirectTo: redirectUrl,
+        });
+
+        if (resetErr) console.warn("Supabase password reset notice:", resetErr);
+
+        // Safe neutral message (prevents email enumeration)
+        setInfo("If an account exists with this email address, a password recovery link has been sent. Please check your email inbox.");
+      } catch (err: any) {
+        setInfo("If an account exists with this email address, a password recovery link has been sent. Please check your email inbox.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (password.length < 6) return setError("Password must be at least 6 characters.");
 
     setBusy(true);
@@ -53,8 +74,13 @@ function AuthPage() {
         if (password !== confirm) return setError("Passwords do not match.");
         const res = await signUp(name, trimmedEmail, password);
         if (!res.ok) return setError(res.error);
-        setInfo("Account created! Redirecting to complete your profile...");
-        setTimeout(() => goAfterAuth("/complete-profile"), 1000);
+
+        if (res.isConfirmationRequired) {
+          setInfo("Account created successfully! Please check your email inbox to confirm your account before logging in.");
+        } else {
+          setInfo("Account created! Redirecting to complete your profile...");
+          setTimeout(() => goAfterAuth("/complete-profile"), 1000);
+        }
       } else {
         const res = await signIn(trimmedEmail, password);
         if (!res.ok) {
@@ -70,12 +96,6 @@ function AuthPage() {
     } finally {
       setBusy(false);
     }
-  }
-
-
-  function handleForgotPassword() {
-    setError(null);
-    setInfo("Password reset isn't available in this demo. Please sign up again with a new password.");
   }
 
   return (
@@ -104,9 +124,15 @@ function AuthPage() {
             <div className="font-display font-bold text-brand">Campus Mart</div>
           </Link>
 
-          <h1 className="text-3xl font-bold">{mode === "signin" ? "Welcome back" : "Create your account"}</h1>
+          <h1 className="text-3xl font-bold">
+            {mode === "signin" ? "Welcome back" : mode === "signup" ? "Create your account" : "Reset your password"}
+          </h1>
           <p className="mt-2 text-muted-foreground text-sm">
-            {mode === "signin" ? "Log in with your email and password to continue." : "Sign up with your email to join the marketplace."}
+            {mode === "signin"
+              ? "Log in with your email and password to continue."
+              : mode === "signup"
+              ? "Sign up with your email to join the marketplace."
+              : "Enter your email address and we'll send you a password recovery link."}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
@@ -114,19 +140,25 @@ function AuthPage() {
               <Field icon={User} label="Full Name" type="text" placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} required />
             )}
             <Field icon={Mail} label="Email Address" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <div className="relative">
-              <Field icon={Lock} label={mode === "signup" ? "Create Password" : "Password"} type={showPw ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-[42px] text-muted-foreground hover:text-foreground" aria-label="Toggle password">
-                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
+
+            {mode !== "forgot" && (
+              <div className="relative">
+                <Field icon={Lock} label={mode === "signup" ? "Create Password" : "Password"} type={showPw ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-[42px] text-muted-foreground hover:text-foreground" aria-label="Toggle password">
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
+
             {mode === "signup" && (
               <Field icon={Lock} label="Confirm Password" type={showPw ? "text" : "password"} placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             )}
 
             {mode === "signin" && (
               <div className="flex justify-end">
-                <button type="button" onClick={handleForgotPassword} className="text-sm font-medium text-brand-2 hover:underline">Forgot Password?</button>
+                <button type="button" onClick={() => { setMode("forgot"); setError(null); setInfo(null); }} className="text-sm font-medium text-brand-2 hover:underline">
+                  Forgot Password?
+                </button>
               </div>
             )}
 
@@ -134,15 +166,23 @@ function AuthPage() {
             {info && <div className="text-sm text-brand-2 bg-brand-2/10 border border-brand-2/20 rounded-lg px-3 py-2">{info}</div>}
 
             <button type="submit" disabled={busy} className="w-full h-12 rounded-xl gradient-brand text-primary-foreground font-semibold flex items-center justify-center gap-2 hover:opacity-95 hover:scale-[1.01] transition shadow-lg disabled:opacity-70">
-              {busy ? "Please wait…" : (mode === "signin" ? "Login" : "Create Account")} <ArrowRight className="h-4 w-4" />
+              {busy ? "Please wait…" : mode === "signin" ? "Login" : mode === "signup" ? "Create Account" : "Send Recovery Email"} <ArrowRight className="h-4 w-4" />
             </button>
           </form>
 
           <p className="mt-6 text-sm text-center text-muted-foreground">
-            {mode === "signin" ? "Don't have an account?" : "Already have an account?"}{" "}
-            <button type="button" onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setInfo(null); }} className="font-semibold text-brand-2 hover:underline">
-              {mode === "signin" ? "Sign up" : "Login"}
-            </button>
+            {mode === "forgot" ? (
+              <button type="button" onClick={() => { setMode("signin"); setError(null); setInfo(null); }} className="font-semibold text-brand-2 hover:underline">
+                ← Back to Login
+              </button>
+            ) : (
+              <>
+                {mode === "signin" ? "Don't have an account?" : "Already have an account?"}{" "}
+                <button type="button" onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setInfo(null); }} className="font-semibold text-brand-2 hover:underline">
+                  {mode === "signin" ? "Sign up" : "Login"}
+                </button>
+              </>
+            )}
           </p>
         </div>
       </div>

@@ -21,8 +21,16 @@ type State = {
   loading: boolean;
 };
 
+export function getProductionUrl(): string {
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin;
+  }
+  return import.meta.env.VITE_SITE_URL || "https://campus-mart-production.vercel.app";
+}
+
 // Cached profile key for fast initial load
 const LS_KEY_PROFILE = "campus_mart_profile_cache";
+
 const LS_KEY_PRODUCTS = "campus_mart_products_cache";
 
 let state: State = { user: null, profile: null, products: [], wishlist: [], loading: true };
@@ -393,29 +401,40 @@ export function useStore() {
     }
   }, []);
 
-  const signUp = useCallback(async (name: string, email: string, password: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+
+  const signUp = useCallback(async (name: string, email: string, password: string): Promise<{ ok: true; isConfirmationRequired?: boolean } | { ok: false; error: string }> => {
     const trimmedEmail = email.trim().toLowerCase();
     const userName = name.trim() || "Student";
-    
+    const redirectUrl = `${getProductionUrl()}/auth`;
+
     const { data, error } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
-      options: { data: { name: userName } },
+      options: {
+        data: { name: userName },
+        emailRedirectTo: redirectUrl,
+      },
     });
 
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (error.message.includes("User already registered") || error.message.includes("already registered")) {
+        return { ok: false, error: "An account with this email address already exists. Please log in instead." };
+      }
+      return { ok: false, error: error.message };
+    }
 
     if (data?.session) {
       await handleSession(data.session);
       return { ok: true };
     }
 
-    if (data?.user && !data.session) {
-      return { ok: false, error: "Account created! Please check your email to confirm your account." };
+    if (data?.user) {
+      return { ok: true, isConfirmationRequired: true };
     }
 
     return { ok: true };
   }, []);
+
 
   const signIn = useCallback(async (email: string, password: string): Promise<{ ok: true } | { ok: false; error: string }> => {
     const trimmedEmail = email.trim().toLowerCase();

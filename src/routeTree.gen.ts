@@ -21,6 +21,7 @@ import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RequestRouteImport } from './routes/request'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SellRouteImport } from './routes/sell'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
@@ -89,6 +90,11 @@ const RequestRoute = RequestRouteImport.update({
   path: '/request',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SellRoute = SellRouteImport.update({
   id: '/sell',
   path: '/sell',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/order-success': typeof OrderSuccessRoute
   '/profile': typeof ProfileRoute
   '/request': typeof RequestRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sell': typeof SellRoute
   '/wishlist': typeof WishlistRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/order-success': typeof OrderSuccessRoute
   '/profile': typeof ProfileRoute
   '/request': typeof RequestRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sell': typeof SellRoute
   '/wishlist': typeof WishlistRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
@@ -184,6 +192,7 @@ export interface FileRoutesById {
   '/order-success': typeof OrderSuccessRoute
   '/profile': typeof ProfileRoute
   '/request': typeof RequestRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sell': typeof SellRoute
   '/wishlist': typeof WishlistRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
     | '/order-success'
     | '/profile'
     | '/request'
+    | '/reset-password'
     | '/sell'
     | '/wishlist'
     | '/.mcp/list-tools'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/order-success'
     | '/profile'
     | '/request'
+    | '/reset-password'
     | '/sell'
     | '/wishlist'
     | '/.mcp/list-tools'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/order-success'
     | '/profile'
     | '/request'
+    | '/reset-password'
     | '/sell'
     | '/wishlist'
     | '/.mcp/list-tools'
@@ -271,6 +283,7 @@ export interface RootRouteChildren {
   OrderSuccessRoute: typeof OrderSuccessRoute
   ProfileRoute: typeof ProfileRoute
   RequestRoute: typeof RequestRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SellRoute: typeof SellRoute
   WishlistRoute: typeof WishlistRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
@@ -366,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RequestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sell': {
       id: '/sell'
       path: '/sell'
@@ -431,6 +451,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrderSuccessRoute: OrderSuccessRoute,
   ProfileRoute: ProfileRoute,
   RequestRoute: RequestRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SellRoute: SellRoute,
   WishlistRoute: WishlistRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
