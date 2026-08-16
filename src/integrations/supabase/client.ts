@@ -5,16 +5,23 @@ import type { Database } from './types';
 const DEFAULT_SUPABASE_URL = "https://lfroaqcpbdrmwghretut.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxmcm9hcWNwYmRybXdnaHJldHV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MDk5MTksImV4cCI6MjEwMjE4NTkxOX0.yPuConYq7FqFilPwl-Y2XqateAWTfchinHBCp-tfia4";
 
-function createSupabaseClient() {
-  const SUPABASE_URL =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
-    (typeof process !== 'undefined' && process.env?.SUPABASE_URL) ||
-    DEFAULT_SUPABASE_URL;
+function cleanEnvString(str: string | undefined): string | undefined {
+  if (!str) return undefined;
+  const cleaned = str.trim().replace(/^["']|["']$/g, '').trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+}
 
-  const SUPABASE_PUBLISHABLE_KEY =
+function createSupabaseClient() {
+  const rawUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
+    (typeof process !== 'undefined' && process.env?.SUPABASE_URL);
+
+  const rawKey =
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY) ||
-    (typeof process !== 'undefined' && process.env?.SUPABASE_PUBLISHABLE_KEY) ||
-    DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+    (typeof process !== 'undefined' && process.env?.SUPABASE_PUBLISHABLE_KEY);
+
+  const SUPABASE_URL = (cleanEnvString(rawUrl) || DEFAULT_SUPABASE_URL).replace(/\/+$/, '');
+  const SUPABASE_PUBLISHABLE_KEY = cleanEnvString(rawKey) || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
