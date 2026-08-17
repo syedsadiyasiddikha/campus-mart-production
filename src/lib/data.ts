@@ -11,6 +11,8 @@ export type Product = {
   category: string;
   description: string;
   created_at?: string;
+  sold?: boolean;
+  quantity?: number;
 };
 
 export const CATEGORIES = [

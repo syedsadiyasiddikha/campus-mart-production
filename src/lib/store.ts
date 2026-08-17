@@ -93,6 +93,9 @@ function mapProductRow(r: any): Product {
     }
   }
 
+  const isSold = Boolean(r.sold) || r.quantity === 0;
+  const qty = r.quantity !== undefined ? Number(r.quantity) : (isSold ? 0 : 1);
+
   return {
     id: r.id,
     name: r.name,
@@ -106,8 +109,11 @@ function mapProductRow(r: any): Product {
     category: r.category,
     description: r.description ?? "",
     created_at: r.created_at,
+    sold: isSold,
+    quantity: qty,
   };
 }
+
 
 async function loadProfile(userId: string, email: string): Promise<Profile | null> {
   try {
