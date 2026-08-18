@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Bell, Heart, Home, MessageCircle, Plus, Search, User, Menu, X, MapPin, ShoppingBag, HelpCircle, Mail } from "lucide-react";
+import { Bell, Heart, Home, MessageCircle, Plus, Search, User, Menu, X, MapPin, ShoppingBag, HelpCircle, Mail, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import logo from "@/assets/logo.jpg";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,31 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 );
               })}
+              {(profile?.role === "admin" || user?.email?.toLowerCase().includes("admin")) && (
+                <Link
+                  to="/admin"
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+                    pathname === "/admin" ? "bg-orange text-white" : "text-orange hover:bg-orange/10"
+                  }`}
+                >
+                  <ShieldCheck className="h-4 w-4" /> Admin
+                </Link>
+              )}
             </nav>
 
             <div className="flex-1" />
 
             <div className="flex items-center gap-1">
+              {(profile?.role === "admin" || user?.email?.toLowerCase().includes("admin")) && (
+                <Link
+                  to="/admin"
+                  className="lg:hidden p-2 rounded-full text-orange hover:bg-orange/10 transition"
+                  aria-label="Admin Dashboard"
+                  title="Admin Dashboard"
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                </Link>
+              )}
               <Link to="/wishlist" className="p-2 rounded-full hover:bg-muted transition" aria-label="Wishlist">
                 <Heart className="h-5 w-5 text-muted-foreground" />
               </Link>

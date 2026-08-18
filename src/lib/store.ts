@@ -11,6 +11,8 @@ export type Profile = {
   phone: string;
   residence: "Hostel" | "Day Scholar";
   bio: string;
+  role?: "admin" | "user";
+  suspended?: boolean;
 };
 
 type State = {
@@ -136,6 +138,8 @@ async function loadProfile(userId: string, email: string): Promise<Profile | nul
           phone: row.phone ?? "",
           residence: (row.residence as Profile["residence"]) ?? "Hostel",
           bio: row.bio ?? "",
+          role: (row.role as "admin" | "user") ?? (email.toLowerCase().includes("admin") ? "admin" : "user"),
+          suspended: Boolean(row.suspended),
         };
         return prof;
       }
@@ -150,6 +154,7 @@ async function loadProfile(userId: string, email: string): Promise<Profile | nul
 
   // Default initial profile for authenticated user
   const fallbackName = email.split("@")[0] || "Student";
+  const isAdmin = email.toLowerCase().includes("admin");
   return {
     name: fallbackName,
     email: email,
@@ -158,6 +163,8 @@ async function loadProfile(userId: string, email: string): Promise<Profile | nul
     phone: "",
     residence: "Hostel",
     bio: "",
+    role: isAdmin ? "admin" : "user",
+    suspended: false,
   };
 }
 
