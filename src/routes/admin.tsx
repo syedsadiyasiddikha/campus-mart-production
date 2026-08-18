@@ -332,9 +332,12 @@ function AdminDashboard() {
               Manage reported transaction disputes, inspect user behavior, and review system audit logs.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-orange/10 text-orange border border-orange/20">
               Authenticated Admin
+            </span>
+            <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-600 border border-purple-500/20" title="To use live Gemini LLM analysis, set VITE_GEMINI_API_KEY in Vercel environment variables">
+              🤖 Gemini AI API: {import.meta.env?.VITE_GEMINI_API_KEY ? "Live API Connected" : "VITE_GEMINI_API_KEY (Rule Fallback)"}
             </span>
           </div>
         </div>
