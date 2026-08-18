@@ -36,7 +36,16 @@ function Landing() {
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Student Marketplace</div>
             </div>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <Link to="/marketplace" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
+              Marketplace
+            </Link>
+            <Link to="/orders" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
+              My Orders
+            </Link>
+            <Link to="/admin" className="text-sm font-medium text-orange hover:text-orange/80 transition hidden sm:block">
+              Admin
+            </Link>
             <Link to="/auth" className="text-sm font-medium text-foreground hover:text-brand transition px-3 py-2">
               Sign in
             </Link>
