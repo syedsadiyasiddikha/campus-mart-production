@@ -120,8 +120,9 @@ function Chat() {
           const combined = [...dbThreads, ...localThreads];
           const unique = Array.from(new Map(combined.map((t) => [t.id, t])).values());
 
-          // If queryChatId is requested but not in list yet, load its details directly
+          // If queryChatId is requested but not in list yet, load or construct its details directly
           if (queryChatId && !unique.some((t) => t.id === queryChatId)) {
+            let fetchedThread: Thread | null = null;
             try {
               const { data: singleChat } = await supabase
                 .from("chats")
@@ -134,7 +135,7 @@ function Chat() {
                 const otherId = isBuyer ? singleChat.seller_id : singleChat.buyer_id;
                 const { data: otherProf } = await supabase.from("profiles").select("name").eq("id", otherId).maybeSingle();
 
-                const newThread: Thread = {
+                fetchedThread = {
                   id: singleChat.id,
                   product_id: singleChat.product_id,
                   buyer_id: singleChat.buyer_id,
@@ -142,10 +143,29 @@ function Chat() {
                   product_name: (singleChat.products as any)?.name ?? "Campus Item",
                   other_name: otherProf?.name || (isBuyer ? "Seller" : "Buyer"),
                 };
-                unique.unshift(newThread);
               }
             } catch (e) {
               console.warn("Direct thread fetch notice:", e);
+            }
+
+            // Fallback for synthetic/new chat IDs if DB record hasn't returned yet
+            if (!fetchedThread) {
+              const pId = queryChatId.replace(/^chat_/, "").split("_")[0];
+              const targetProd = allProducts.find((p) => p.id === pId);
+              if (targetProd) {
+                fetchedThread = {
+                  id: queryChatId,
+                  product_id: targetProd.id,
+                  buyer_id: user.id,
+                  seller_id: targetProd.seller_id,
+                  product_name: targetProd.name,
+                  other_name: targetProd.seller || "Seller",
+                };
+              }
+            }
+
+            if (fetchedThread) {
+              unique.unshift(fetchedThread);
             }
           }
 

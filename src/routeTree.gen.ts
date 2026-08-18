@@ -20,6 +20,7 @@ import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
+import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RequestRouteImport } from './routes/request'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -84,6 +85,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const OrderSuccessRoute = OrderSuccessRouteImport.update({
   id: '/order-success',
   path: '/order-success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersRoute = OrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/notifications': typeof NotificationsRoute
   '/order-success': typeof OrderSuccessRoute
+  '/orders': typeof OrdersRoute
   '/profile': typeof ProfileRoute
   '/request': typeof RequestRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/notifications': typeof NotificationsRoute
   '/order-success': typeof OrderSuccessRoute
+  '/orders': typeof OrdersRoute
   '/profile': typeof ProfileRoute
   '/request': typeof RequestRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/notifications': typeof NotificationsRoute
   '/order-success': typeof OrderSuccessRoute
+  '/orders': typeof OrdersRoute
   '/profile': typeof ProfileRoute
   '/request': typeof RequestRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/notifications'
     | '/order-success'
+    | '/orders'
     | '/profile'
     | '/request'
     | '/reset-password'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/notifications'
     | '/order-success'
+    | '/orders'
     | '/profile'
     | '/request'
     | '/reset-password'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/notifications'
     | '/order-success'
+    | '/orders'
     | '/profile'
     | '/request'
     | '/reset-password'
@@ -294,6 +306,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   NotificationsRoute: typeof NotificationsRoute
   OrderSuccessRoute: typeof OrderSuccessRoute
+  OrdersRoute: typeof OrdersRoute
   ProfileRoute: typeof ProfileRoute
   RequestRoute: typeof RequestRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -385,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrderSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -470,6 +490,7 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   NotificationsRoute: NotificationsRoute,
   OrderSuccessRoute: OrderSuccessRoute,
+  OrdersRoute: OrdersRoute,
   ProfileRoute: ProfileRoute,
   RequestRoute: RequestRoute,
   ResetPasswordRoute: ResetPasswordRoute,

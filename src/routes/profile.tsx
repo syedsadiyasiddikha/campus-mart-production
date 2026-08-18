@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useStore, type Profile } from "@/lib/store";
-import { Camera, Check, LogOut, Trash2, ExternalLink } from "lucide-react";
+import { Camera, Check, LogOut, Trash2, ExternalLink, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Profile — Campus Mart" }] }),
@@ -77,17 +77,27 @@ function ProfilePage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Your Profile</h1>
             <p className="mt-1 text-muted-foreground text-sm">Update your details so other students can recognise you.</p>
           </div>
-          <button
-            onClick={() => { signOut(); navigate({ to: "/auth" }); }}
-            className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-muted text-sm font-medium flex items-center gap-2"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
+          <div className="flex items-center gap-2">
+            {(profile?.role === "admin" || user?.email?.toLowerCase().includes("admin")) && (
+              <button
+                onClick={() => navigate({ to: "/admin" })}
+                className="h-10 px-4 rounded-lg bg-orange text-white text-sm font-semibold flex items-center gap-1.5 shadow-sm hover:opacity-90 transition"
+              >
+                <ShieldCheck className="h-4 w-4" /> Admin Dashboard
+              </button>
+            )}
+            <button
+              onClick={() => { signOut(); navigate({ to: "/auth" }); }}
+              className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-muted text-sm font-medium flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
+          </div>
         </div>
 
         <form onSubmit={submit} className="mt-8 card-soft p-6 sm:p-8 space-y-5">

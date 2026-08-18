@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Bell, Heart, Home, MessageCircle, Plus, Search, User, Menu, X, MapPin, ShoppingBag, HelpCircle, Mail, ShieldCheck } from "lucide-react";
+import { Bell, Heart, Home, MessageCircle, Plus, Search, User, Menu, X, MapPin, ShoppingBag, HelpCircle, Mail, ShieldCheck, Package } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import logo from "@/assets/logo.jpg";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useStore } from "@/lib/store";
 const NAV = [
   { to: "/dashboard", label: "Home", icon: Home },
   { to: "/marketplace", label: "Marketplace", icon: ShoppingBag },
+  { to: "/orders", label: "My Orders", icon: Package },
   { to: "/sell", label: "Sell", icon: Plus },
   { to: "/request", label: "Requests", icon: HelpCircle },
   { to: "/lost-found", label: "Lost & Found", icon: MapPin },
