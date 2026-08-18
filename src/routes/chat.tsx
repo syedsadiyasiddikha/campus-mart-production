@@ -163,12 +163,8 @@ function Chat() {
           .order("created_at", { ascending: true });
 
         if (!error && dbMsgs) {
-          const combined = [...(dbMsgs as Msg[]), ...localMsgs];
-          const uniqueMap = new Map(combined.map((m) => [m.id, m]));
-          const sorted = Array.from(uniqueMap.values()).sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-          setMessages(sorted);
+          // If DB has messages, use DB records as authoritative source
+          setMessages(dbMsgs as Msg[]);
           return;
         }
       } catch (e) {
@@ -217,38 +213,50 @@ function Chat() {
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim() || !user || !activeId) return;
+    if (!text.trim() || !user || !activeId || sending) return;
 
     const body = text.trim();
     setText("");
     setSending(true);
 
-    const newMsg: Msg = {
-      id: "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
-      chat_id: activeId,
-      sender_id: user.id,
-      text: body,
-      created_at: new Date().toISOString(),
-    };
-
-    // Save locally first for instant UI feedback & offline resilience
-    saveLocalMsg(newMsg);
-    setMessages((prev) => [...prev, newMsg]);
-
-    // Send to Supabase DB
     try {
-      const { error } = await supabase.from("messages").insert({
-        chat_id: activeId,
-        sender_id: user.id,
-        text: body,
-      });
-      if (error) console.warn("Supabase message insert notice:", error);
+      // 1. Insert into Supabase DB and retrieve authoritative inserted record
+      const { data: inserted, error } = await supabase
+        .from("messages")
+        .insert({
+          chat_id: activeId,
+          sender_id: user.id,
+          text: body,
+        })
+        .select("*")
+        .single();
+
+      if (!error && inserted) {
+        // Add real DB message (realtime subscription will deduplicate by matching inserted.id)
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === inserted.id)) return prev;
+          return [...prev, inserted as Msg];
+        });
+      } else {
+        if (error) console.warn("Supabase message insert notice:", error);
+        // Fallback for offline / network issues
+        const fallbackMsg: Msg = {
+          id: "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+          chat_id: activeId,
+          sender_id: user.id,
+          text: body,
+          created_at: new Date().toISOString(),
+        };
+        saveLocalMsg(fallbackMsg);
+        setMessages((prev) => [...prev, fallbackMsg]);
+      }
     } catch (err) {
       console.warn("Message sending exception:", err);
     } finally {
       setSending(false);
     }
   }
+
 
   return (
     <AppShell>
