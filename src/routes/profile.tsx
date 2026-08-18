@@ -156,6 +156,9 @@ function ProfilePage() {
           </button>
         </form>
 
+        {/* My Orders & Sales Section */}
+        <OrdersAndSalesSection userId={user.id} />
+
         {/* My Posted Listings Section */}
         <div className="mt-10">
           <h2 className="text-xl font-bold mb-4">My Posted Listings ({userProducts.length})</h2>
@@ -207,6 +210,176 @@ function ProfilePage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function OrdersAndSalesSection({ userId }: { userId: string }) {
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  async function loadOrders() {
+    setLoading(true);
+    try {
+      const { data: pData } = await supabase
+        .from("orders")
+        .select("*, products(name, price, image_url)")
+        .eq("buyer_id", userId)
+        .order("created_at", { ascending: false });
+
+      const { data: sData } = await supabase
+        .from("orders")
+        .select("*, products(name, price, image_url), profiles:buyer_id(name)")
+        .eq("seller_id", userId)
+        .order("created_at", { ascending: false });
+
+      setPurchases(pData ?? []);
+      setSales(sData ?? []);
+    } catch (e) {
+      console.warn("Error fetching orders:", e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadOrders();
+  }, [userId]);
+
+  async function handleConfirmHandover(order: any) {
+    if (!window.confirm("Confirm that you have received payment and handed over the item to the buyer?")) return;
+    setUpdatingId(order.id);
+    try {
+      await supabase.from("orders").update({ status: "completed" }).eq("id", order.id);
+      await supabase.from("products").update({ sold: true, reserved: false }).eq("id", order.product_id);
+
+      await supabase.from("notifications").insert({
+        user_id: order.buyer_id,
+        type: "order_placed",
+        title: "Order Completed! 🎉",
+        body: `Your purchase of "${order.products?.name || "item"}" has been confirmed as completed by the seller.`,
+        action_url: "/profile",
+      });
+
+      await loadOrders();
+    } catch (e: any) {
+      alert("Error confirming handover: " + (e?.message || "Please try again."));
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleCancelOrder(order: any) {
+    if (!window.confirm("Are you sure you want to cancel this pending offline order? The item will be made available to other buyers.")) return;
+    setUpdatingId(order.id);
+    try {
+      await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
+      await supabase.from("products").update({ sold: false, reserved: false }).eq("id", order.product_id);
+
+      await supabase.from("notifications").insert({
+        user_id: order.buyer_id,
+        type: "order_placed",
+        title: "Order Cancelled",
+        body: `Your pending offline order for "${order.products?.name || "item"}" was cancelled by the seller.`,
+        action_url: "/profile",
+      });
+
+      await loadOrders();
+    } catch (e: any) {
+      alert("Error cancelling order: " + (e?.message || "Please try again."));
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  if (loading) return null;
+  if (purchases.length === 0 && sales.length === 0) return null;
+
+  return (
+    <div className="mt-10 space-y-8">
+      {/* My Sales (Incoming Orders for Seller) */}
+      {sales.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold mb-4">Incoming Sales & Handovers ({sales.length})</h2>
+          <div className="space-y-3">
+            {sales.map((order) => {
+              const isPending = order.status === "pending_offline";
+              const isCompleted = order.status === "completed" || order.status === "paid";
+              const isCancelled = order.status === "cancelled";
+
+              return (
+                <div key={order.id} className="card-soft p-4 flex items-center justify-between gap-4 flex-wrap border border-border">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">{order.products?.name || "Campus Item"}</div>
+                    <div className="text-xs text-muted-foreground">Buyer: {order.profiles?.name || "Student"}</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                        isPending ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                        isCompleted ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
+                        "bg-destructive/10 text-destructive border border-destructive/20"
+                      }`}>
+                        {isPending ? "Pending Handover (Reserved)" : isCompleted ? "Completed (Sold)" : "Cancelled"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isPending && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => handleConfirmHandover(order)}
+                        disabled={updatingId === order.id}
+                        className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition shadow-xs disabled:opacity-50"
+                      >
+                        ✓ Confirm Payment & Handover
+                      </button>
+                      <button
+                        onClick={() => handleCancelOrder(order)}
+                        disabled={updatingId === order.id}
+                        className="h-9 px-3 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-white text-xs font-semibold transition disabled:opacity-50"
+                      >
+                        Cancel Order
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* My Purchases (Buyer Orders) */}
+      {purchases.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold mb-4">My Order History ({purchases.length})</h2>
+          <div className="space-y-3">
+            {purchases.map((order) => {
+              const isPending = order.status === "pending_offline";
+              const isCompleted = order.status === "completed" || order.status === "paid";
+
+              return (
+                <div key={order.id} className="card-soft p-4 flex items-center justify-between gap-4 flex-wrap border border-border">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">{order.products?.name || "Campus Item"}</div>
+                    <div className="text-xs text-muted-foreground">Order Date: {new Date(order.created_at).toLocaleDateString()}</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                        isPending ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                        isCompleted ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
+                        "bg-destructive/10 text-destructive border border-destructive/20"
+                      }`}>
+                        {isPending ? "Pending Handover (Reserved)" : isCompleted ? "Completed" : "Cancelled"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

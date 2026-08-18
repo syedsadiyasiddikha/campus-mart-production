@@ -43,6 +43,7 @@ function ProductDetails() {
   const product = allProducts.find((p) => p.id === id) || fetchedProduct;
   const isOwn = user?.id === product?.seller_id;
   const isSoldOut = Boolean(product?.sold) || (product?.quantity !== undefined && product?.quantity !== null && Number(product?.quantity) <= 0);
+  const isReserved = !isSoldOut && Boolean(product?.reserved);
 
   useEffect(() => {
     if (!product && id) {
@@ -59,6 +60,7 @@ function ProductDetails() {
             }
           }
           const isSold = Boolean(data.sold);
+          const isRes = Boolean(data.reserved);
           const qty = (data.quantity !== undefined && data.quantity !== null && !isNaN(Number(data.quantity)))
             ? Number(data.quantity)
             : (isSold ? 0 : 1);
@@ -78,6 +80,7 @@ function ProductDetails() {
             description: data.description || "",
             created_at: data.created_at,
             sold: finalSold,
+            reserved: !finalSold && isRes,
             quantity: finalSold ? 0 : Math.max(1, qty),
           });
         }
@@ -145,18 +148,35 @@ function ProductDetails() {
   }
 
   async function handleConfirmCheckout() {
-    if (!user || isOwn || paying || isSoldOut) return;
+    if (!user || isOwn || paying || isSoldOut || isReserved) return;
 
     if (paymentMethod === "offline") {
       setPaying(true);
       try {
-        await supabase.from("orders").insert({
+        // Atomic check: Ensure product is not already sold or reserved
+        const { data: latest } = await supabase
+          .from("products")
+          .select("sold, reserved")
+          .eq("id", product.id)
+          .maybeSingle();
+
+        if (latest?.sold || latest?.reserved) {
+          alert("This product has already been reserved by another student or sold out.");
+          setPaying(false);
+          return;
+        }
+
+        const { error: orderErr } = await supabase.from("orders").insert({
           product_id: product.id,
           buyer_id: user.id,
           seller_id: product.seller_id,
           status: "pending_offline",
         });
-        await supabase.from("products").update({ sold: true }).eq("id", product.id);
+
+        if (orderErr) throw orderErr;
+
+        // Mark product as RESERVED (not sold!)
+        await supabase.from("products").update({ reserved: true }).eq("id", product.id);
 
         setShowCheckoutModal(false);
         setPaying(false);
@@ -264,11 +284,15 @@ function ProductDetails() {
                 <div className="text-muted-foreground text-sm">No Image Provided</div>
               )}
 
-              {isSoldOut && (
+              {isSoldOut ? (
                 <div className="absolute top-4 left-4 bg-destructive text-destructive-foreground font-extrabold text-sm uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg border border-white/20 animate-pulse">
                   Sold Out
                 </div>
-              )}
+              ) : isReserved ? (
+                <div className="absolute top-4 left-4 bg-amber-500 text-white font-extrabold text-sm uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg border border-white/20">
+                  Reserved
+                </div>
+              ) : null}
 
               {productImages.length > 1 && (
                 <>
@@ -310,11 +334,15 @@ function ProductDetails() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-orange">{product.category}</span>
-              {isSoldOut && (
+              {isSoldOut ? (
                 <span className="text-xs font-bold uppercase tracking-wider text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20">
                   Sold Out
                 </span>
-              )}
+              ) : isReserved ? (
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  Reserved
+                </span>
+              ) : null}
             </div>
             <h1 className="mt-2 text-3xl font-bold">{product.name}</h1>
             <div className="mt-4 flex items-baseline gap-3">
@@ -346,15 +374,15 @@ function ProductDetails() {
                   <button
                     id="buy-now-btn"
                     onClick={() => setShowCheckoutModal(true)}
-                    disabled={paying || isSoldOut}
+                    disabled={paying || isSoldOut || isReserved}
                     className={`w-full h-14 rounded-2xl font-bold text-base flex items-center justify-center gap-3 shadow-lg transition ${
-                      isSoldOut
+                      isSoldOut || isReserved
                         ? "bg-muted text-muted-foreground cursor-not-allowed shadow-none"
                         : "gradient-brand text-primary-foreground hover:opacity-95 hover:scale-[1.01]"
                     }`}
                   >
                     <CreditCard className="h-5 w-5" />
-                    {isSoldOut ? "SOLD OUT — Unavailable for Purchase" : `Buy Now · ${formatINR(product.price)}`}
+                    {isSoldOut ? "SOLD OUT — Unavailable for Purchase" : isReserved ? "RESERVED — Pending Handover" : `Buy Now · ${formatINR(product.price)}`}
                   </button>
 
                   <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground pt-1">

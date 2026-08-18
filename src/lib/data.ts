@@ -12,6 +12,7 @@ export type Product = {
   description: string;
   created_at?: string;
   sold?: boolean;
+  reserved?: boolean;
   quantity?: number;
 };
 

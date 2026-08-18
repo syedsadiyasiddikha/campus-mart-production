@@ -22,29 +22,31 @@ export interface VerifyPaymentInput {
 export const createRazorpayOrderServerFn = createServerFn({ method: "POST" })
   .validator((data: CreateOrderInput) => data)
   .handler(async ({ data }) => {
-    const keyId =
-      process.env.VITE_RAZORPAY_KEY_ID ||
-      process.env.RAZORPAY_KEY_ID ||
-      "";
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
+    const rawKeyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
+    const rawKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 
-    const keyId_exists = Boolean(keyId && keyId.trim().length > 0);
-    const keySecret_exists = Boolean(keySecret && keySecret.trim().length > 0);
+    const keyId = rawKeyId.trim().replace(/^["']|["']$/g, "");
+    const keySecret = rawKeySecret.trim().replace(/^["']|["']$/g, "");
+
+    const keyId_exists = Boolean(keyId && keyId.length > 0);
+    const keySecret_exists = Boolean(keySecret && keySecret.length > 0);
     const isPlaceholderSecret = keySecret.includes("placeholder");
+    const isTestKey = keyId.startsWith("rzp_test_");
 
     // Secure audit log (logs only boolean existence, NEVER actual secret values)
     console.log(
-      `[Backend Razorpay Audit] keyId_exists: ${keyId_exists} | keySecret_exists: ${keySecret_exists} | is_placeholder: ${isPlaceholderSecret}`
+      `[Backend Razorpay Audit] keyId_exists: ${keyId_exists} | isTestKey: ${isTestKey} | keySecret_exists: ${keySecret_exists} | is_placeholder: ${isPlaceholderSecret}`
     );
 
     if (!keyId_exists || !keySecret_exists || isPlaceholderSecret) {
-      console.error("[Backend Auth Notice]: RAZORPAY_KEY_SECRET in .env is missing or set to placeholder string.");
+      console.error("[Backend Auth Notice]: RAZORPAY_KEY_SECRET in process.env is missing or set to placeholder string.");
       return {
         ok: false,
-        error: "RAZORPAY_KEY_SECRET is not configured in .env. Please update RAZORPAY_KEY_SECRET in your .env file with your actual Razorpay Secret Key.",
+        error: "RAZORPAY_KEY_SECRET is not configured in environment variables. Please update RAZORPAY_KEY_SECRET in your Vercel Environment Variables dashboard with your actual Razorpay Secret Key.",
         code: "ENV_SECRET_MISSING",
       };
     }
+
 
     const authHeader = "Basic " + Buffer.from(`${keyId}:${keySecret}`).toString("base64");
 

@@ -94,6 +94,7 @@ function mapProductRow(r: any): Product {
   }
 
   const isSold = Boolean(r.sold);
+  const isReserved = Boolean(r.reserved);
   const qty = (r.quantity !== undefined && r.quantity !== null && !isNaN(Number(r.quantity)))
     ? Number(r.quantity)
     : (isSold ? 0 : 1);
@@ -113,6 +114,7 @@ function mapProductRow(r: any): Product {
     description: r.description ?? "",
     created_at: r.created_at,
     sold: finalSold,
+    reserved: !finalSold && isReserved,
     quantity: finalSold ? 0 : Math.max(1, qty),
   };
 }

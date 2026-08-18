@@ -7,6 +7,7 @@ export function ProductCard({ product }: { product: Product }) {
   const { isWishlisted, toggleWishlist } = useStore();
   const wished = isWishlisted(product.id);
   const isSoldOut = Boolean(product.sold) || (product.quantity !== undefined && product.quantity !== null && Number(product.quantity) <= 0);
+  const isReserved = !isSoldOut && Boolean(product.reserved);
 
   return (
     <div className={`group card-soft overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 hover:-translate-y-1 flex flex-col ${isSoldOut ? "opacity-90" : ""}`}>
@@ -37,11 +38,15 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="text-[10px] uppercase tracking-wider font-semibold bg-card/95 backdrop-blur px-2 py-1 rounded-full text-brand shadow-xs">
             {product.condition}
           </div>
-          {isSoldOut && (
+          {isSoldOut ? (
             <div className="text-[10px] uppercase tracking-wider font-bold bg-destructive text-destructive-foreground px-2.5 py-1 rounded-full shadow-md animate-pulse">
               Sold Out
             </div>
-          )}
+          ) : isReserved ? (
+            <div className="text-[10px] uppercase tracking-wider font-bold bg-amber-500 text-white px-2.5 py-1 rounded-full shadow-md">
+              Reserved
+            </div>
+          ) : null}
         </div>
       </Link>
       <div className="p-4 flex-1 flex flex-col gap-2">
@@ -56,12 +61,12 @@ export function ProductCard({ product }: { product: Product }) {
           to="/product/$id"
           params={{ id: product.id }}
           className={`mt-2 inline-flex items-center justify-center h-9 rounded-lg text-sm font-medium transition-colors ${
-            isSoldOut
+            isSoldOut || isReserved
               ? "bg-muted text-muted-foreground hover:bg-muted/80"
               : "bg-secondary hover:bg-brand hover:text-brand-foreground text-secondary-foreground"
           }`}
         >
-          {isSoldOut ? "Sold Out · View Details" : "View Details"}
+          {isSoldOut ? "Sold Out · View Details" : isReserved ? "Reserved · View Details" : "View Details"}
         </Link>
       </div>
     </div>
