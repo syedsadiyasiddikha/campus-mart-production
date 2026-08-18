@@ -1,13 +1,36 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { AppShell, SearchBar } from "@/components/AppShell";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
 import { RequireProfile } from "@/components/RequireProfile";
 import { CATEGORIES } from "@/lib/data";
 import { useStore } from "@/lib/store";
-import * as Icons from "lucide-react";
-import { ChevronLeft, ChevronRight, Sparkles, TrendingUp, Clock } from "lucide-react";
+import {
+  BookOpen,
+  GraduationCap,
+  Calculator,
+  Ruler,
+  Cpu,
+  Lamp,
+  Pencil,
+  Package,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  TrendingUp,
+  Clock,
+} from "lucide-react";
+
+const CATEGORY_ICON_MAP: Record<string, any> = {
+  BookOpen: BookOpen,
+  GraduationCap: GraduationCap,
+  Calculator: Calculator,
+  Ruler: Ruler,
+  Cpu: Cpu,
+  Lamp: Lamp,
+  Pencil: Pencil,
+};
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Home — Campus Mart" }] }),
@@ -81,7 +104,7 @@ function Dashboard() {
           <h2 className="text-xl font-bold mb-4">Shop by Category</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {CATEGORIES.map((cat) => {
-              const Icon = (Icons as any)[cat.icon] ?? Icons.Box;
+              const Icon = CATEGORY_ICON_MAP[cat.icon] || Package;
               return (
                 <Link
                   key={cat.name}
