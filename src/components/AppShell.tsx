@@ -19,6 +19,7 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { user, profile } = useStore();
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
