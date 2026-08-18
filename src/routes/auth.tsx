@@ -144,8 +144,13 @@ function AuthPage() {
             {mode !== "forgot" && (
               <div className="relative">
                 <Field icon={Lock} label={mode === "signup" ? "Create Password" : "Password"} type={showPw ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-[42px] text-muted-foreground hover:text-foreground" aria-label="Toggle password">
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  className="absolute right-2 top-[34px] h-9 w-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition shrink-0"
+                  aria-label="Toggle password visibility"
+                >
+                  {showPw ? <EyeOff className="h-4 w-4 shrink-0" /> : <Eye className="h-4 w-4 shrink-0" />}
                 </button>
               </div>
             )}
@@ -195,8 +200,8 @@ function Field({ icon: Icon, label, ...props }: { icon: any; label: string } & R
     <label className="block">
       <span className="text-sm font-medium text-foreground">{label}</span>
       <div className="mt-1.5 relative">
-        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input {...props} className="w-full h-12 pl-10 pr-3 rounded-xl bg-card border border-border focus:border-brand-2 focus:ring-2 focus:ring-brand-2/20 outline-none transition" />
+        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <input {...props} className="w-full h-12 pl-10 pr-10 rounded-xl bg-card border border-border focus:border-brand-2 focus:ring-2 focus:ring-brand-2/20 outline-none transition" />
       </div>
     </label>
   );

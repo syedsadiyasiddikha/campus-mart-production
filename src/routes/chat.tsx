@@ -332,22 +332,47 @@ function Chat() {
             {active ? (
               <>
                 {/* Header */}
-                <div className="px-4 py-3 border-b border-border flex items-center gap-3 bg-card">
-                  <button
-                    onClick={() => setMobileOpen(false)}
-                    className="md:hidden p-1.5 rounded-lg hover:bg-muted"
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </button>
-                  <div className="h-9 w-9 rounded-full gradient-brand flex items-center justify-center text-primary-foreground text-sm font-bold">
-                    {active.other_name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm truncate">{active.other_name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      Re: <span className="font-medium text-foreground">{active.product_name}</span>
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 bg-card">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      onClick={() => setMobileOpen(false)}
+                      className="md:hidden p-1.5 rounded-lg hover:bg-muted"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+                    <div className="h-9 w-9 rounded-full gradient-brand flex items-center justify-center text-primary-foreground text-sm font-bold shrink-0">
+                      {active.other_name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">{active.other_name}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        Re: <span className="font-medium text-foreground">{active.product_name}</span>
+                      </div>
                     </div>
                   </div>
+
+                  <button
+                    onClick={async () => {
+                      const reason = window.prompt(`Report user "${active.other_name}" for inappropriate behavior, harassment, or scam activity:\n\nEnter details/reason below:`);
+                      if (!reason?.trim()) return;
+                      try {
+                        const targetId = active.buyer_id === user?.id ? active.seller_id : active.buyer_id;
+                        await supabase.from("user_reports").insert({
+                          reported_by: user?.id,
+                          reported_user_id: targetId,
+                          reason: "Chat Report",
+                          details: reason.trim(),
+                        });
+                        alert(`Report submitted against ${active.other_name}. Our moderation team will review this chat conversation.`);
+                      } catch (e: any) {
+                        alert("Error submitting report: " + (e?.message || "Please try again."));
+                      }
+                    }}
+                    className="text-xs font-medium text-muted-foreground hover:text-destructive transition px-2 py-1 rounded-md hover:bg-destructive/10 shrink-0"
+                    title="Report inappropriate behavior"
+                  >
+                    Report User
+                  </button>
                 </div>
 
                 {/* Messages List Area */}

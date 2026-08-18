@@ -219,12 +219,24 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Dispute modal state
+  const [disputeOrder, setDisputeOrder] = useState<any | null>(null);
+  const [disputeReason, setDisputeReason] = useState("Product not handed over");
+  const [disputeDesc, setDisputeDesc] = useState("");
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+
+  // Report user modal state
+  const [reportUserTarget, setReportUserTarget] = useState<{ id: string; name: string } | null>(null);
+  const [reportReason, setReportReason] = useState("Harassment or inappropriate behavior");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+
   async function loadOrders() {
     setLoading(true);
     try {
       const { data: pData } = await supabase
         .from("orders")
-        .select("*, products(name, price, image_url)")
+        .select("*, products(name, price, image_url), profiles:seller_id(name)")
         .eq("buyer_id", userId)
         .order("created_at", { ascending: false });
 
@@ -247,20 +259,65 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
     loadOrders();
   }, [userId]);
 
-  async function handleConfirmHandover(order: any) {
-    if (!window.confirm("Confirm that you have received payment and handed over the item to the buyer?")) return;
+  async function handleMarkReady(order: any) {
     setUpdatingId(order.id);
     try {
-      await supabase.from("orders").update({ status: "completed" }).eq("id", order.id);
-      await supabase.from("products").update({ sold: true, reserved: false }).eq("id", order.product_id);
-
+      await supabase.from("orders").update({ status: "READY_FOR_PICKUP", ready_for_pickup: true }).eq("id", order.id);
       await supabase.from("notifications").insert({
         user_id: order.buyer_id,
         type: "order_placed",
-        title: "Order Completed! 🎉",
-        body: `Your purchase of "${order.products?.name || "item"}" has been confirmed as completed by the seller.`,
+        title: "Ready for Pickup! 📍",
+        body: `The seller marked "${order.products?.name || "your item"}" as ready for campus pickup!`,
         action_url: "/profile",
       });
+      await loadOrders();
+    } catch (e: any) {
+      alert("Error marking ready: " + (e?.message || "Please try again."));
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleConfirmHandover(order: any, isSeller: boolean) {
+    const actionLabel = isSeller ? "confirm that physical handover & payment is complete" : "confirm that you received the product";
+    if (!window.confirm(`Are you sure you want to ${actionLabel}?`)) return;
+
+    setUpdatingId(order.id);
+    try {
+      const buyerConf = isSeller ? Boolean(order.buyer_confirmed) : true;
+      const sellerConf = isSeller ? true : Boolean(order.seller_confirmed);
+      const isBothConfirmed = buyerConf && sellerConf;
+
+      const updateData: any = {
+        buyer_confirmed: buyerConf,
+        seller_confirmed: sellerConf,
+        status: isBothConfirmed ? "completed" : "HANDOVER_PENDING",
+      };
+
+      await supabase.from("orders").update(updateData).eq("id", order.id);
+
+      if (isBothConfirmed) {
+        // Only mark SOLD OUT when BOTH parties confirm!
+        await supabase.from("products").update({ sold: true, booked: false, reserved: false }).eq("id", order.product_id);
+
+        const otherUserId = isSeller ? order.buyer_id : order.seller_id;
+        await supabase.from("notifications").insert({
+          user_id: otherUserId,
+          type: "order_placed",
+          title: "Transaction Completed! 🎉",
+          body: `Handover for "${order.products?.name || "item"}" has been confirmed by both parties!`,
+          action_url: "/profile",
+        });
+      } else {
+        const otherUserId = isSeller ? order.buyer_id : order.seller_id;
+        await supabase.from("notifications").insert({
+          user_id: otherUserId,
+          type: "order_placed",
+          title: "Handover Confirmation Pending ⏳",
+          body: `${isSeller ? "Seller" : "Buyer"} confirmed handover for "${order.products?.name || "item"}". Please confirm on your orders tab to complete.`,
+          action_url: "/profile",
+        });
+      }
 
       await loadOrders();
     } catch (e: any) {
@@ -271,25 +328,86 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
   }
 
   async function handleCancelOrder(order: any) {
-    if (!window.confirm("Are you sure you want to cancel this pending offline order? The item will be made available to other buyers.")) return;
+    if (!window.confirm("Are you sure you want to cancel this booking? The item will be made available to other buyers.")) return;
     setUpdatingId(order.id);
     try {
       await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
-      await supabase.from("products").update({ sold: false, reserved: false }).eq("id", order.product_id);
+      await supabase.from("products").update({ sold: false, booked: false, reserved: false }).eq("id", order.product_id);
 
+      const otherUserId = userId === order.seller_id ? order.buyer_id : order.seller_id;
       await supabase.from("notifications").insert({
-        user_id: order.buyer_id,
+        user_id: otherUserId,
         type: "order_placed",
-        title: "Order Cancelled",
-        body: `Your pending offline order for "${order.products?.name || "item"}" was cancelled by the seller.`,
+        title: "Booking Cancelled",
+        body: `The booking for "${order.products?.name || "item"}" was cancelled. The item is available again.`,
         action_url: "/profile",
       });
 
       await loadOrders();
     } catch (e: any) {
-      alert("Error cancelling order: " + (e?.message || "Please try again."));
+      alert("Error cancelling booking: " + (e?.message || "Please try again."));
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function submitDispute(e: React.FormEvent) {
+    e.preventDefault();
+    if (!disputeOrder) return;
+    setSubmittingDispute(true);
+    try {
+      // 1. Insert into disputes table
+      await supabase.from("disputes").insert({
+        order_id: disputeOrder.id,
+        product_id: disputeOrder.product_id,
+        opened_by: userId,
+        buyer_id: disputeOrder.buyer_id,
+        seller_id: disputeOrder.seller_id,
+        reason: disputeReason,
+        description: disputeDesc,
+      });
+
+      // 2. Mark order as DISPUTED (product remains booked, NOT sold out)
+      await supabase.from("orders").update({ status: "DISPUTED" }).eq("id", disputeOrder.id);
+
+      const otherUserId = userId === disputeOrder.seller_id ? disputeOrder.buyer_id : disputeOrder.seller_id;
+      await supabase.from("notifications").insert({
+        user_id: otherUserId,
+        type: "order_placed",
+        title: "Dispute Opened ⚠️",
+        body: `A problem/dispute was reported for "${disputeOrder.products?.name || "order"}". Status: Under Review.`,
+        action_url: "/profile",
+      });
+
+      alert("Dispute reported. The order has been marked as DISPUTED and chat history is retained for review.");
+      setDisputeOrder(null);
+      setDisputeDesc("");
+      await loadOrders();
+    } catch (e: any) {
+      alert("Error opening dispute: " + (e?.message || "Please try again."));
+    } finally {
+      setSubmittingDispute(false);
+    }
+  }
+
+  async function submitUserReport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reportUserTarget) return;
+    setSubmittingReport(true);
+    try {
+      await supabase.from("user_reports").insert({
+        reported_by: userId,
+        reported_user_id: reportUserTarget.id,
+        reason: reportReason,
+        details: reportDetails,
+      });
+      alert(`Report submitted against ${reportUserTarget.name}. Our moderation team will inspect the chat and activity history.`);
+      setReportUserTarget(null);
+      setReportDetails("");
+    } catch (e: any) {
+      alert("Error submitting report: " + (e?.message || "Please try again."));
+    } finally {
+      setSubmittingReport(false);
     }
   }
 
@@ -304,44 +422,98 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
           <h2 className="text-xl font-bold mb-4">Incoming Sales & Handovers ({sales.length})</h2>
           <div className="space-y-3">
             {sales.map((order) => {
-              const isPending = order.status === "pending_offline";
-              const isCompleted = order.status === "completed" || order.status === "paid";
-              const isCancelled = order.status === "cancelled";
+              const status = order.status;
+              const isBooked = status === "pending_offline" || status === "BOOKED";
+              const isReady = status === "READY_FOR_PICKUP";
+              const isPendingHandover = status === "HANDOVER_PENDING";
+              const isCompleted = status === "completed" || status === "paid";
+              const isCancelled = status === "cancelled";
+              const isDisputed = status === "DISPUTED";
+
+              const buyerName = order.profiles?.name || "Buyer";
 
               return (
-                <div key={order.id} className="card-soft p-4 flex items-center justify-between gap-4 flex-wrap border border-border">
+                <div key={order.id} className="card-soft p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap border border-border">
                   <div className="min-w-0">
                     <div className="font-semibold text-sm truncate">{order.products?.name || "Campus Item"}</div>
-                    <div className="text-xs text-muted-foreground">Buyer: {order.profiles?.name || "Student"}</div>
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground">Buyer: {buyerName}</div>
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                       <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                        isPending ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                        isBooked ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                        isReady ? "bg-blue-500/10 text-blue-600 border border-blue-500/20" :
+                        isPendingHandover ? "bg-purple-500/10 text-purple-600 border border-purple-500/20" :
                         isCompleted ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
+                        isDisputed ? "bg-orange/10 text-orange border border-orange/20" :
                         "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}>
-                        {isPending ? "BOOKED (Pending Handover)" : isCompleted ? "COMPLETED (Sold Out)" : "CANCELLED"}
+                        {isBooked ? "BOOKED" :
+                         isReady ? "READY FOR PICKUP" :
+                         isPendingHandover ? "HANDOVER PENDING" :
+                         isCompleted ? "COMPLETED (Sold Out)" :
+                         isDisputed ? "DISPUTED" : "CANCELLED"}
                       </span>
+                      {order.seller_confirmed && !isCompleted && (
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md font-medium">✓ You Confirmed</span>
+                      )}
+                      {order.buyer_confirmed && !isCompleted && (
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md font-medium">✓ Buyer Confirmed</span>
+                      )}
                     </div>
                   </div>
 
-                  {isPending && (
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Seller Action: Ready for Pickup */}
+                    {isBooked && (
                       <button
-                        onClick={() => handleConfirmHandover(order)}
+                        onClick={() => handleMarkReady(order)}
                         disabled={updatingId === order.id}
-                        className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition shadow-xs disabled:opacity-50"
+                        className="h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition disabled:opacity-50"
                       >
-                        ✓ Confirm Transaction Completed
+                        Mark Ready for Pickup
                       </button>
+                    )}
+
+                    {/* Seller Action: Handover Completed */}
+                    {!isCompleted && !isCancelled && !isDisputed && (
+                      <button
+                        onClick={() => handleConfirmHandover(order, true)}
+                        disabled={updatingId === order.id || Boolean(order.seller_confirmed)}
+                        className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition disabled:opacity-50"
+                      >
+                        {order.seller_confirmed ? "✓ Handover Confirmed" : "Handover Completed"}
+                      </button>
+                    )}
+
+                    {/* Cancel Action */}
+                    {!isCompleted && !isCancelled && !isDisputed && (
                       <button
                         onClick={() => handleCancelOrder(order)}
                         disabled={updatingId === order.id}
-                        className="h-9 px-3 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-white text-xs font-semibold transition disabled:opacity-50"
+                        className="h-9 px-3 rounded-lg bg-muted hover:bg-muted/80 text-foreground text-xs font-medium border border-border transition disabled:opacity-50"
                       >
-                        Cancel Booking
+                        Cancel
                       </button>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Dispute Action */}
+                    {!isCompleted && !isCancelled && !isDisputed && (
+                      <button
+                        onClick={() => setDisputeOrder(order)}
+                        className="h-9 px-3 rounded-lg bg-orange/10 text-orange border border-orange/20 hover:bg-orange hover:text-white text-xs font-medium transition"
+                      >
+                        Report Problem
+                      </button>
+                    )}
+
+                    {/* Report User Action */}
+                    <button
+                      onClick={() => setReportUserTarget({ id: order.buyer_id, name: buyerName })}
+                      className="h-9 px-2.5 rounded-lg text-muted-foreground hover:text-destructive text-xs font-medium transition"
+                      title="Report Buyer"
+                    >
+                      Report User
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -355,27 +527,206 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
           <h2 className="text-xl font-bold mb-4">My Order & Booking History ({purchases.length})</h2>
           <div className="space-y-3">
             {purchases.map((order) => {
-              const isPending = order.status === "pending_offline";
-              const isCompleted = order.status === "completed" || order.status === "paid";
+              const status = order.status;
+              const isBooked = status === "pending_offline" || status === "BOOKED";
+              const isReady = status === "READY_FOR_PICKUP";
+              const isPendingHandover = status === "HANDOVER_PENDING";
+              const isCompleted = status === "completed" || status === "paid";
+              const isCancelled = status === "cancelled";
+              const isDisputed = status === "DISPUTED";
+
+              const sellerName = order.profiles?.name || "Seller";
 
               return (
-                <div key={order.id} className="card-soft p-4 flex items-center justify-between gap-4 flex-wrap border border-border">
+                <div key={order.id} className="card-soft p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap border border-border">
                   <div className="min-w-0">
                     <div className="font-semibold text-sm truncate">{order.products?.name || "Campus Item"}</div>
-                    <div className="text-xs text-muted-foreground">Booking Date: {new Date(order.created_at).toLocaleDateString()}</div>
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground">Seller: {sellerName} · Booking Date: {new Date(order.created_at).toLocaleDateString()}</div>
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                       <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                        isPending ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                        isBooked ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                        isReady ? "bg-blue-500/10 text-blue-600 border border-blue-500/20" :
+                        isPendingHandover ? "bg-purple-500/10 text-purple-600 border border-purple-500/20" :
                         isCompleted ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
+                        isDisputed ? "bg-orange/10 text-orange border border-orange/20" :
                         "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}>
-                        {isPending ? "BOOKED" : isCompleted ? "COMPLETED" : "CANCELLED"}
+                        {isBooked ? "BOOKED" :
+                         isReady ? "READY FOR PICKUP" :
+                         isPendingHandover ? "HANDOVER PENDING" :
+                         isCompleted ? "COMPLETED" :
+                         isDisputed ? "DISPUTED" : "CANCELLED"}
                       </span>
+                      {order.buyer_confirmed && !isCompleted && (
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md font-medium">✓ You Confirmed</span>
+                      )}
+                      {order.seller_confirmed && !isCompleted && (
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md font-medium">✓ Seller Confirmed</span>
+                      )}
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Buyer Action: I Received the Product */}
+                    {!isCompleted && !isCancelled && !isDisputed && (
+                      <button
+                        onClick={() => handleConfirmHandover(order, false)}
+                        disabled={updatingId === order.id || Boolean(order.buyer_confirmed)}
+                        className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition disabled:opacity-50"
+                      >
+                        {order.buyer_confirmed ? "✓ Received Confirmed" : "I Received the Product"}
+                      </button>
+                    )}
+
+                    {/* Cancel Action */}
+                    {!isCompleted && !isCancelled && !isDisputed && (
+                      <button
+                        onClick={() => handleCancelOrder(order)}
+                        disabled={updatingId === order.id}
+                        className="h-9 px-3 rounded-lg bg-muted hover:bg-muted/80 text-foreground text-xs font-medium border border-border transition disabled:opacity-50"
+                      >
+                        Cancel Booking
+                      </button>
+                    )}
+
+                    {/* Dispute Action */}
+                    {!isCompleted && !isCancelled && !isDisputed && (
+                      <button
+                        onClick={() => setDisputeOrder(order)}
+                        className="h-9 px-3 rounded-lg bg-orange/10 text-orange border border-orange/20 hover:bg-orange hover:text-white text-xs font-medium transition"
+                      >
+                        Report Problem
+                      </button>
+                    )}
+
+                    {/* Report User Action */}
+                    <button
+                      onClick={() => setReportUserTarget({ id: order.seller_id, name: sellerName })}
+                      className="h-9 px-2.5 rounded-lg text-muted-foreground hover:text-destructive text-xs font-medium transition"
+                      title="Report Seller"
+                    >
+                      Report User
+                    </button>
                   </div>
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* DISPUTE MODAL */}
+      {disputeOrder && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="card-soft w-full max-w-lg p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <h3 className="text-lg font-bold">Report a Problem / Open Dispute</h3>
+            <p className="text-xs text-muted-foreground">
+              Item: <span className="font-semibold text-foreground">{disputeOrder.products?.name || "Order Item"}</span>
+            </p>
+
+            <form onSubmit={submitDispute} className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">Reason for Dispute</span>
+                <select
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  className="mt-1.5 w-full h-11 px-3 rounded-xl bg-card border border-border text-sm outline-none focus:border-brand-2"
+                >
+                  <option value="Product not handed over">Product not handed over</option>
+                  <option value="Seller did not show up">Seller did not show up</option>
+                  <option value="Buyer did not show up">Buyer did not show up</option>
+                  <option value="Product different from listing">Product different from listing</option>
+                  <option value="Payment/transaction problem">Payment/transaction problem</option>
+                  <option value="Harassment or inappropriate behavior">Harassment or inappropriate behavior</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">Additional Details / Evidence</span>
+                <textarea
+                  rows={3}
+                  value={disputeDesc}
+                  onChange={(e) => setDisputeDesc(e.target.value)}
+                  placeholder="Describe what happened during campus handover..."
+                  className="mt-1.5 w-full px-3 py-2 rounded-xl bg-card border border-border text-sm outline-none focus:border-brand-2"
+                />
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDisputeOrder(null)}
+                  className="h-10 px-4 rounded-xl border border-border text-sm font-medium hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingDispute}
+                  className="h-10 px-5 rounded-xl bg-orange text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {submittingDispute ? "Submitting…" : "Submit Dispute"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REPORT USER MODAL */}
+      {reportUserTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="card-soft w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <h3 className="text-lg font-bold">Report User</h3>
+            <p className="text-xs text-muted-foreground">
+              Reporting: <span className="font-semibold text-foreground">{reportUserTarget.name}</span>
+            </p>
+
+            <form onSubmit={submitUserReport} className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">Reason</span>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="mt-1.5 w-full h-11 px-3 rounded-xl bg-card border border-border text-sm outline-none focus:border-brand-2"
+                >
+                  <option value="Harassment or inappropriate behavior">Harassment or inappropriate behavior</option>
+                  <option value="Spam or fraudulent activity">Spam or fraudulent activity</option>
+                  <option value="No-show during handover">No-show during handover</option>
+                  <option value="Fake or misleading listings">Fake or misleading listings</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">Details</span>
+                <textarea
+                  rows={3}
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  placeholder="Provide context or details about the issue..."
+                  className="mt-1.5 w-full px-3 py-2 rounded-xl bg-card border border-border text-sm outline-none focus:border-brand-2"
+                />
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReportUserTarget(null)}
+                  className="h-10 px-4 rounded-xl border border-border text-sm font-medium hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingReport}
+                  className="h-10 px-5 rounded-xl bg-destructive text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {submittingReport ? "Reporting…" : "Submit Report"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

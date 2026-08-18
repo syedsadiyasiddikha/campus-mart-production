@@ -289,3 +289,49 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE POLICY "Authenticated users can read profile photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'profile-photos');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 8. OFFLINE TRANSACTION SAFETY, DISPUTES & USER REPORTS
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS booked BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS reserved BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS buyer_confirmed BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS seller_confirmed BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS ready_for_pickup BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS public.disputes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE,
+  opened_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  buyer_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  seller_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.disputes TO authenticated;
+GRANT ALL ON public.disputes TO service_role;
+ALTER TABLE public.disputes ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY "Disputes readable by involved users" ON public.disputes FOR SELECT TO authenticated USING (auth.uid() = buyer_id OR auth.uid() = seller_id OR auth.uid() = opened_by);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY "Users insert own disputes" ON public.disputes FOR INSERT TO authenticated WITH CHECK (auth.uid() = opened_by);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.user_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reported_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  reported_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  details TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_reports TO authenticated;
+GRANT ALL ON public.user_reports TO service_role;
+ALTER TABLE public.user_reports ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY "Users insert own reports" ON public.user_reports FOR INSERT TO authenticated WITH CHECK (auth.uid() = reported_by);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

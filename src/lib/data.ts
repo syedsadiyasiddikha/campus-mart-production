@@ -22,7 +22,6 @@ export const CATEGORIES = [
   { name: "Scientific Calculators", icon: "Calculator" },
   { name: "Engineering Mini Drafter", icon: "Ruler" },
   { name: "Electronics", icon: "Cpu" },
-  { name: "Cycles", icon: "Bike" },
   { name: "Hostel Essentials", icon: "Lamp" },
   { name: "Stationery", icon: "Pencil" },
 ];
