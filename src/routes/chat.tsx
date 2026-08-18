@@ -119,12 +119,40 @@ function Chat() {
           // Merge DB threads with local threads
           const combined = [...dbThreads, ...localThreads];
           const unique = Array.from(new Map(combined.map((t) => [t.id, t])).values());
+
+          // If queryChatId is requested but not in list yet, load its details directly
+          if (queryChatId && !unique.some((t) => t.id === queryChatId)) {
+            try {
+              const { data: singleChat } = await supabase
+                .from("chats")
+                .select("id, product_id, buyer_id, seller_id, created_at, products(name)")
+                .eq("id", queryChatId)
+                .maybeSingle();
+
+              if (singleChat) {
+                const isBuyer = singleChat.buyer_id === user.id;
+                const otherId = isBuyer ? singleChat.seller_id : singleChat.buyer_id;
+                const { data: otherProf } = await supabase.from("profiles").select("name").eq("id", otherId).maybeSingle();
+
+                const newThread: Thread = {
+                  id: singleChat.id,
+                  product_id: singleChat.product_id,
+                  buyer_id: singleChat.buyer_id,
+                  seller_id: singleChat.seller_id,
+                  product_name: (singleChat.products as any)?.name ?? "Campus Item",
+                  other_name: otherProf?.name || (isBuyer ? "Seller" : "Buyer"),
+                };
+                unique.unshift(newThread);
+              }
+            } catch (e) {
+              console.warn("Direct thread fetch notice:", e);
+            }
+          }
+
           setThreads(unique);
 
-          // Select active chat
-          const targetId = queryChatId && unique.some((t) => t.id === queryChatId)
-            ? queryChatId
-            : (queryChatId || (unique.length > 0 ? unique[0].id : null));
+          // Select active chat (always respect queryChatId if present)
+          const targetId = queryChatId || (unique.length > 0 ? unique[0].id : null);
 
           setActiveId(targetId);
           if (queryChatId) setMobileOpen(true);

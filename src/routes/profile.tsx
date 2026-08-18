@@ -319,7 +319,7 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
                         isCompleted ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
                         "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}>
-                        {isPending ? "Pending Handover (Reserved)" : isCompleted ? "Completed (Sold)" : "Cancelled"}
+                        {isPending ? "BOOKED (Pending Handover)" : isCompleted ? "COMPLETED (Sold Out)" : "CANCELLED"}
                       </span>
                     </div>
                   </div>
@@ -331,14 +331,14 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
                         disabled={updatingId === order.id}
                         className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition shadow-xs disabled:opacity-50"
                       >
-                        ✓ Confirm Payment & Handover
+                        ✓ Confirm Transaction Completed
                       </button>
                       <button
                         onClick={() => handleCancelOrder(order)}
                         disabled={updatingId === order.id}
                         className="h-9 px-3 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-white text-xs font-semibold transition disabled:opacity-50"
                       >
-                        Cancel Order
+                        Cancel Booking
                       </button>
                     </div>
                   )}
@@ -352,7 +352,7 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
       {/* My Purchases (Buyer Orders) */}
       {purchases.length > 0 && (
         <div>
-          <h2 className="text-xl font-bold mb-4">My Order History ({purchases.length})</h2>
+          <h2 className="text-xl font-bold mb-4">My Order & Booking History ({purchases.length})</h2>
           <div className="space-y-3">
             {purchases.map((order) => {
               const isPending = order.status === "pending_offline";
@@ -362,14 +362,14 @@ function OrdersAndSalesSection({ userId }: { userId: string }) {
                 <div key={order.id} className="card-soft p-4 flex items-center justify-between gap-4 flex-wrap border border-border">
                   <div className="min-w-0">
                     <div className="font-semibold text-sm truncate">{order.products?.name || "Campus Item"}</div>
-                    <div className="text-xs text-muted-foreground">Order Date: {new Date(order.created_at).toLocaleDateString()}</div>
+                    <div className="text-xs text-muted-foreground">Booking Date: {new Date(order.created_at).toLocaleDateString()}</div>
                     <div className="mt-1 flex items-center gap-2">
                       <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                         isPending ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
                         isCompleted ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
                         "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}>
-                        {isPending ? "Pending Handover (Reserved)" : isCompleted ? "Completed" : "Cancelled"}
+                        {isPending ? "BOOKED" : isCompleted ? "COMPLETED" : "CANCELLED"}
                       </span>
                     </div>
                   </div>

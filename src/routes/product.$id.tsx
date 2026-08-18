@@ -43,7 +43,7 @@ function ProductDetails() {
   const product = allProducts.find((p) => p.id === id) || fetchedProduct;
   const isOwn = user?.id === product?.seller_id;
   const isSoldOut = Boolean(product?.sold) || (product?.quantity !== undefined && product?.quantity !== null && Number(product?.quantity) <= 0);
-  const isReserved = !isSoldOut && Boolean(product?.reserved);
+  const isBooked = !isSoldOut && Boolean(product?.booked || product?.reserved);
 
   useEffect(() => {
     if (!product && id) {
@@ -60,7 +60,7 @@ function ProductDetails() {
             }
           }
           const isSold = Boolean(data.sold);
-          const isRes = Boolean(data.reserved);
+          const isBk = Boolean(data.booked || data.reserved);
           const qty = (data.quantity !== undefined && data.quantity !== null && !isNaN(Number(data.quantity)))
             ? Number(data.quantity)
             : (isSold ? 0 : 1);
@@ -80,7 +80,8 @@ function ProductDetails() {
             description: data.description || "",
             created_at: data.created_at,
             sold: finalSold,
-            reserved: !finalSold && isRes,
+            booked: !finalSold && isBk,
+            reserved: !finalSold && isBk,
             quantity: finalSold ? 0 : Math.max(1, qty),
           });
         }
@@ -123,45 +124,56 @@ function ProductDetails() {
   const productImages = product.images && product.images.length > 0 ? product.images : (product.image ? [product.image] : []);
 
   async function chatWithSeller() {
-    if (!user || isOwn) return;
+    if (!user || isOwn || !product) return;
     try {
       const { data: existing } = await supabase
-        .from("chats").select("id")
-        .eq("product_id", product!.id).eq("buyer_id", user.id).maybeSingle();
+        .from("chats")
+        .select("id")
+        .eq("product_id", product.id)
+        .eq("buyer_id", user.id)
+        .eq("seller_id", product.seller_id)
+        .maybeSingle();
+
       let chatId = existing?.id;
       if (!chatId) {
-        const { data: created, error: createErr } = await supabase.from("chats").insert({
-          product_id: product!.id, buyer_id: user.id, seller_id: product!.seller_id,
-        }).select("id").single();
+        const { data: created, error: createErr } = await supabase
+          .from("chats")
+          .insert({
+            product_id: product.id,
+            buyer_id: user.id,
+            seller_id: product.seller_id,
+          })
+          .select("id")
+          .single();
+
         if (!createErr && created) {
           chatId = created.id;
         }
       }
-      
-      const targetId = chatId || `chat_${product!.id}_${user.id}`;
-      navigate({ to: "/chat", search: { id: targetId } });
+
+      if (chatId) {
+        navigate({ to: "/chat", search: { id: chatId } });
+      }
     } catch (e) {
-      console.warn("Chat creation error fallback:", e);
-      const fallbackId = `chat_${product!.id}_${user.id}`;
-      navigate({ to: "/chat", search: { id: fallbackId } });
+      console.warn("Chat creation notice:", e);
     }
   }
 
   async function handleConfirmCheckout() {
-    if (!user || isOwn || paying || isSoldOut || isReserved) return;
+    if (!user || isOwn || paying || isSoldOut || isBooked) return;
 
     if (paymentMethod === "offline") {
       setPaying(true);
       try {
-        // Atomic check: Ensure product is not already sold or reserved
+        // Atomic check: Ensure product is not already sold or booked
         const { data: latest } = await supabase
           .from("products")
-          .select("sold, reserved")
+          .select("sold, booked, reserved")
           .eq("id", product.id)
           .maybeSingle();
 
-        if (latest?.sold || latest?.reserved) {
-          alert("This product has already been reserved by another student or sold out.");
+        if (latest?.sold || latest?.booked || latest?.reserved) {
+          alert("This product has already been booked by another student or sold out.");
           setPaying(false);
           return;
         }
@@ -175,14 +187,14 @@ function ProductDetails() {
 
         if (orderErr) throw orderErr;
 
-        // Mark product as RESERVED (not sold!)
-        await supabase.from("products").update({ reserved: true }).eq("id", product.id);
+        // Mark product as BOOKED (not sold!)
+        await supabase.from("products").update({ booked: true, reserved: true }).eq("id", product.id);
 
         setShowCheckoutModal(false);
         setPaying(false);
         navigate({ to: "/order-success", search: { id: product.id } });
       } catch (e: any) {
-        alert("Could not process offline order: " + (e?.message || "Please try again."));
+        alert("Could not process offline booking: " + (e?.message || "Please try again."));
         setPaying(false);
       }
       return;
@@ -288,9 +300,9 @@ function ProductDetails() {
                 <div className="absolute top-4 left-4 bg-destructive text-destructive-foreground font-extrabold text-sm uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg border border-white/20 animate-pulse">
                   Sold Out
                 </div>
-              ) : isReserved ? (
+              ) : isBooked ? (
                 <div className="absolute top-4 left-4 bg-amber-500 text-white font-extrabold text-sm uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg border border-white/20">
-                  Reserved
+                  Booked
                 </div>
               ) : null}
 
@@ -338,9 +350,9 @@ function ProductDetails() {
                 <span className="text-xs font-bold uppercase tracking-wider text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20">
                   Sold Out
                 </span>
-              ) : isReserved ? (
+              ) : isBooked ? (
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                  Reserved
+                  Booked
                 </span>
               ) : null}
             </div>
@@ -374,15 +386,15 @@ function ProductDetails() {
                   <button
                     id="buy-now-btn"
                     onClick={() => setShowCheckoutModal(true)}
-                    disabled={paying || isSoldOut || isReserved}
+                    disabled={paying || isSoldOut || isBooked}
                     className={`w-full h-14 rounded-2xl font-bold text-base flex items-center justify-center gap-3 shadow-lg transition ${
-                      isSoldOut || isReserved
+                      isSoldOut || isBooked
                         ? "bg-muted text-muted-foreground cursor-not-allowed shadow-none"
                         : "gradient-brand text-primary-foreground hover:opacity-95 hover:scale-[1.01]"
                     }`}
                   >
                     <CreditCard className="h-5 w-5" />
-                    {isSoldOut ? "SOLD OUT — Unavailable for Purchase" : isReserved ? "RESERVED — Pending Handover" : `Buy Now · ${formatINR(product.price)}`}
+                    {isSoldOut ? "SOLD OUT — Unavailable for Purchase" : isBooked ? "BOOKED — Pending Handover" : `Buy Now · ${formatINR(product.price)}`}
                   </button>
 
                   <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground pt-1">

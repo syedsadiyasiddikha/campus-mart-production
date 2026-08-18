@@ -7,7 +7,7 @@ import { CheckCircle2, MapPin } from "lucide-react";
 type Search = { id?: string };
 
 export const Route = createFileRoute("/order-success")({
-  head: () => ({ meta: [{ title: "Order Confirmed — Campus Mart" }] }),
+  head: () => ({ meta: [{ title: "Booking Confirmed — Campus Mart" }] }),
   validateSearch: (s: Record<string, unknown>): Search => ({ id: typeof s.id === "string" ? s.id : undefined }),
   component: OrderSuccess,
 });
@@ -24,8 +24,8 @@ function OrderSuccess() {
           <div className="h-20 w-20 rounded-full gradient-brand mx-auto flex items-center justify-center text-primary-foreground shadow-lg animate-in zoom-in">
             <CheckCircle2 className="h-10 w-10" />
           </div>
-          <h1 className="mt-6 text-3xl font-bold">Order Confirmed!</h1>
-          <p className="mt-2 text-muted-foreground">Your request has been sent to the seller. They'll coordinate the campus pickup with you on chat.</p>
+          <h1 className="mt-6 text-3xl font-bold">Booking Confirmed! 🎉</h1>
+          <p className="mt-2 text-muted-foreground">Your item has been booked for campus pickup. Connect with the seller on chat to complete the handover and payment.</p>
 
           {product && (
             <div className="mt-8 flex items-center gap-4 p-4 rounded-2xl bg-muted text-left">
