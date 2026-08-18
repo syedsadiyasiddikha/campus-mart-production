@@ -89,7 +89,7 @@ function AuthPage() {
           }
           return setError(res.error);
         }
-        goAfterAuth(isProfileComplete ? "/dashboard" : "/complete-profile");
+        goAfterAuth("/dashboard");
       }
     } catch (err: any) {
       setError(err?.message ?? "An unexpected error occurred. Please try again.");

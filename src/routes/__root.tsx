@@ -39,16 +39,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
-    const timer = setTimeout(() => {
-      try {
-        router.invalidate();
-        reset();
-      } catch (e) {
-        console.warn("Auto-recovery notice:", e);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [error, reset, router]);
+  }, [error]);
 
 
   return (

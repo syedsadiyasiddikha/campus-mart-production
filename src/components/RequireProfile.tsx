@@ -3,16 +3,26 @@ import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 
 export function RequireProfile({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isProfileComplete, loading } = useStore();
+  const { isAuthenticated, profile, loading } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (typeof window === "undefined" || loading) return;
-    if (!isAuthenticated) navigate({ to: "/auth" });
-    else if (!isProfileComplete) navigate({ to: "/complete-profile" });
-  }, [isAuthenticated, isProfileComplete, loading, navigate]);
+    if (!isAuthenticated) {
+      navigate({ to: "/auth" });
+    } else if (profile && !profile.name) {
+      navigate({ to: "/complete-profile" });
+    }
+  }, [isAuthenticated, profile, loading, navigate]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
-  if (!isAuthenticated || !isProfileComplete) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm font-medium text-muted-foreground">
+        Loading Campus Mart…
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
   return <>{children}</>;
 }
