@@ -93,8 +93,11 @@ function mapProductRow(r: any): Product {
     }
   }
 
-  const isSold = Boolean(r.sold) || r.quantity === 0;
-  const qty = r.quantity !== undefined ? Number(r.quantity) : (isSold ? 0 : 1);
+  const isSold = Boolean(r.sold);
+  const qty = (r.quantity !== undefined && r.quantity !== null && !isNaN(Number(r.quantity)))
+    ? Number(r.quantity)
+    : (isSold ? 0 : 1);
+  const finalSold = isSold || qty <= 0;
 
   return {
     id: r.id,
@@ -109,10 +112,11 @@ function mapProductRow(r: any): Product {
     category: r.category,
     description: r.description ?? "",
     created_at: r.created_at,
-    sold: isSold,
-    quantity: qty,
+    sold: finalSold,
+    quantity: finalSold ? 0 : Math.max(1, qty),
   };
 }
+
 
 
 async function loadProfile(userId: string, email: string): Promise<Profile | null> {

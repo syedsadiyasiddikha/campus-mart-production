@@ -42,7 +42,7 @@ function ProductDetails() {
 
   const product = allProducts.find((p) => p.id === id) || fetchedProduct;
   const isOwn = user?.id === product?.seller_id;
-  const isSoldOut = Boolean(product?.sold) || product?.quantity === 0;
+  const isSoldOut = Boolean(product?.sold) || (product?.quantity !== undefined && product?.quantity !== null && Number(product?.quantity) <= 0);
 
   useEffect(() => {
     if (!product && id) {
@@ -58,6 +58,12 @@ function ProductDetails() {
               images = [data.image_url];
             }
           }
+          const isSold = Boolean(data.sold);
+          const qty = (data.quantity !== undefined && data.quantity !== null && !isNaN(Number(data.quantity)))
+            ? Number(data.quantity)
+            : (isSold ? 0 : 1);
+          const finalSold = isSold || qty <= 0;
+
           setFetchedProduct({
             id: data.id,
             name: data.name,
@@ -71,13 +77,14 @@ function ProductDetails() {
             category: data.category,
             description: data.description || "",
             created_at: data.created_at,
-            sold: Boolean(data.sold),
-            quantity: data.quantity,
+            sold: finalSold,
+            quantity: finalSold ? 0 : Math.max(1, qty),
           });
         }
       });
     }
   }, [id, product]);
+
 
   async function handleDelete() {
     if (!product || !user || !isOwn) return;

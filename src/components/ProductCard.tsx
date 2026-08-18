@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 export function ProductCard({ product }: { product: Product }) {
   const { isWishlisted, toggleWishlist } = useStore();
   const wished = isWishlisted(product.id);
-  const isSoldOut = Boolean(product.sold) || product.quantity === 0;
+  const isSoldOut = Boolean(product.sold) || (product.quantity !== undefined && product.quantity !== null && Number(product.quantity) <= 0);
 
   return (
     <div className={`group card-soft overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 hover:-translate-y-1 flex flex-col ${isSoldOut ? "opacity-90" : ""}`}>
