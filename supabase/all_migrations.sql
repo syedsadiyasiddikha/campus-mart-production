@@ -378,3 +378,36 @@ DO $$ BEGIN
   CREATE POLICY "Admins can view all user reports" ON public.user_reports FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role = 'admin' OR email LIKE '%admin%')));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 10. AI DISPUTE RESOLUTION ENGINE & AUDIT LOGS
+ALTER TABLE public.disputes ADD COLUMN IF NOT EXISTS ai_decision TEXT DEFAULT 'PENDING';
+ALTER TABLE public.disputes ADD COLUMN IF NOT EXISTS ai_classification TEXT;
+ALTER TABLE public.disputes ADD COLUMN IF NOT EXISTS ai_confidence INTEGER DEFAULT 0;
+ALTER TABLE public.disputes ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;
+ALTER TABLE public.disputes ADD COLUMN IF NOT EXISTS ai_recommended_action TEXT;
+
+CREATE TABLE IF NOT EXISTS public.ai_decision_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dispute_id UUID REFERENCES public.disputes(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
+  decision TEXT NOT NULL,
+  classification TEXT NOT NULL,
+  confidence INTEGER NOT NULL,
+  reasoning TEXT NOT NULL,
+  action_taken TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT ON public.ai_decision_logs TO authenticated;
+GRANT ALL ON public.ai_decision_logs TO service_role;
+ALTER TABLE public.ai_decision_logs ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  CREATE POLICY "Admins view AI decision logs" ON public.ai_decision_logs FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role = 'admin' OR email LIKE '%admin%')));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "Authenticated users insert AI logs" ON public.ai_decision_logs FOR INSERT TO authenticated
+  WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

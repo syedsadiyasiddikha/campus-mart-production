@@ -160,7 +160,8 @@ function MyOrdersPage() {
     if (!disputeOrder || !user) return;
     setSubmittingDispute(true);
     try {
-      await supabase.from("disputes").insert({
+      const { analyzeAndResolveDispute } = await import("@/lib/ai-dispute-engine");
+      const aiResult = await analyzeAndResolveDispute({
         order_id: disputeOrder.id,
         product_id: disputeOrder.product_id,
         opened_by: user.id,
@@ -170,9 +171,63 @@ function MyOrdersPage() {
         description: disputeDesc,
       });
 
-      await supabase.from("orders").update({ status: "DISPUTED" }).eq("id", disputeOrder.id);
+      const isAutoCancelled = aiResult.decision === "AUTO_CANCELLED";
+      const isAutoCompleted = aiResult.decision === "AUTO_COMPLETED";
 
-      alert("Dispute reported. The order has been marked as DISPUTED and chat logs are retained for review.");
+      const finalStatus = isAutoCancelled
+        ? "RESOLVED_AUTO_CANCELLED"
+        : isAutoCompleted
+        ? "RESOLVED_AUTO_COMPLETED"
+        : "NEEDS_ADMIN_REVIEW";
+
+      const { data: createdDisp } = await supabase
+        .from("disputes")
+        .insert({
+          order_id: disputeOrder.id,
+          product_id: disputeOrder.product_id,
+          opened_by: user.id,
+          buyer_id: disputeOrder.buyer_id,
+          seller_id: disputeOrder.seller_id,
+          reason: disputeReason,
+          description: disputeDesc,
+          status: finalStatus,
+          ai_decision: aiResult.decision,
+          ai_classification: aiResult.classification,
+          ai_confidence: aiResult.confidence,
+          ai_reasoning: aiResult.reasoning,
+          ai_recommended_action: aiResult.recommendedAction,
+        })
+        .select("id")
+        .single();
+
+      // Log AI decision
+      await supabase.from("ai_decision_logs").insert({
+        dispute_id: createdDisp?.id,
+        order_id: disputeOrder.id,
+        decision: aiResult.decision,
+        classification: aiResult.classification,
+        confidence: aiResult.confidence,
+        reasoning: aiResult.reasoning,
+        action_taken: isAutoCancelled
+          ? "Auto-cancelled order and released item."
+          : isAutoCompleted
+          ? "Auto-completed order."
+          : "Escalated to Admin Dashboard.",
+      });
+
+      if (isAutoCancelled) {
+        await supabase.from("orders").update({ status: "cancelled" }).eq("id", disputeOrder.id);
+        await supabase.from("products").update({ sold: false, booked: false, reserved: false }).eq("id", disputeOrder.product_id);
+        alert(`🤖 AI Resolution System (${aiResult.confidence}% confidence):\n\n${aiResult.reasoning}\n\nAction: Order cancelled and item released back to marketplace.`);
+      } else if (isAutoCompleted) {
+        await supabase.from("orders").update({ status: "completed" }).eq("id", disputeOrder.id);
+        await supabase.from("products").update({ sold: true, booked: false, reserved: false }).eq("id", disputeOrder.product_id);
+        alert(`🤖 AI Resolution System (${aiResult.confidence}% confidence):\n\n${aiResult.reasoning}\n\nAction: Order completed.`);
+      } else {
+        await supabase.from("orders").update({ status: "DISPUTED" }).eq("id", disputeOrder.id);
+        alert(`🤖 AI Analysis (${aiResult.confidence}% confidence):\n\n${aiResult.reasoning}\n\nStatus: Marked "Needs Admin Review" for human administrator decision.`);
+      }
+
       setDisputeOrder(null);
       setDisputeDesc("");
       await loadOrders();

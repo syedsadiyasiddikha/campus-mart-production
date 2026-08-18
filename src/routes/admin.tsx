@@ -391,6 +391,7 @@ function AdminDashboard() {
                   className="h-9 px-3 rounded-lg border border-border bg-card text-xs font-medium outline-none"
                 >
                   <option value="ALL">All Disputes</option>
+                  <option value="ESCALATED">🤖 Escalated to Admin (Needs Review)</option>
                   <option value="PENDING">Pending Review</option>
                   <option value="RESOLVED">Resolved / Dismissed</option>
                 </select>
@@ -404,7 +405,7 @@ function AdminDashboard() {
             ) : filteredDisputes.length === 0 ? (
               <div className="card-soft p-12 text-center text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-40 text-emerald-500" />
-                <p className="font-semibold text-foreground">No active disputes</p>
+                <p className="font-semibold text-foreground">No disputes matching filter</p>
                 <p className="text-sm mt-1">All offline transactions are running smoothly!</p>
               </div>
             ) : (
@@ -413,6 +414,8 @@ function AdminDashboard() {
                   const isResolved =
                     d.status === "RESOLVED_COMPLETED" ||
                     d.status === "RESOLVED_CANCELLED" ||
+                    d.status === "RESOLVED_AUTO_CANCELLED" ||
+                    d.status === "RESOLVED_AUTO_COMPLETED" ||
                     d.status === "DISMISSED";
 
                   return (
@@ -438,6 +441,13 @@ function AdminDashboard() {
                             >
                               {d.status || "DISPUTED — Frozen"}
                             </span>
+
+                            {/* AI Decision Tag */}
+                            {d.ai_decision && (
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 border border-purple-500/20 flex items-center gap-1">
+                                🤖 AI: {d.ai_decision} ({d.ai_confidence ?? 85}%)
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
                             Dispute Opened:{" "}
@@ -486,10 +496,26 @@ function AdminDashboard() {
                         </div>
                       </div>
 
+                      {/* AI Decision Analysis Box */}
+                      {d.ai_reasoning && (
+                        <div className="text-xs p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2 font-bold text-purple-700">
+                            <span>🤖 AI System Diagnosis ({d.ai_classification || "ANALYSIS"})</span>
+                            <span>Confidence: {d.ai_confidence ?? 85}%</span>
+                          </div>
+                          <p className="text-muted-foreground">{d.ai_reasoning}</p>
+                          {d.ai_recommended_action && (
+                            <div className="text-[11px] font-semibold text-purple-800 pt-1 border-t border-purple-500/10">
+                              💡 Recommendation: {d.ai_recommended_action}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Reason & Description */}
                       <div className="text-xs space-y-1">
                         <div>
-                          <span className="font-semibold text-foreground">Reason: </span>
+                          <span className="font-semibold text-foreground">Submitted Reason: </span>
                           <span className="text-orange font-medium">{d.reason}</span>
                         </div>
                         {d.description && (
