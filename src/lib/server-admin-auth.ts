@@ -4,10 +4,11 @@ import { createServerFn } from "@tanstack/react-start";
 export const verifyAdminPasscodeServer = createServerFn({ method: "POST" })
   .validator((data: { passcode: string; userEmail: string }) => data)
   .handler(async ({ data }) => {
-    // Read secret code exclusively from server environment variables
+    // Read secret code safely from environment variables
     const rawSecret =
-      process.env.ADMIN_SECRET_CODE ||
-      process.env.VITE_ADMIN_SECRET_CODE ||
+      (typeof process !== "undefined" && process?.env?.ADMIN_SECRET_CODE) ||
+      (typeof process !== "undefined" && process?.env?.VITE_ADMIN_SECRET_CODE) ||
+      (typeof import.meta !== "undefined" && import.meta?.env?.VITE_ADMIN_SECRET_CODE) ||
       "CAMPUS_ADMIN_2026";
 
     const expectedSecret = String(rawSecret).trim();
@@ -16,8 +17,9 @@ export const verifyAdminPasscodeServer = createServerFn({ method: "POST" })
     if (providedPasscode === expectedSecret) {
       const timestamp = Date.now();
       const userMail = (data.userEmail || "").toLowerCase();
-      // Generate secure verification token for this session
-      const verificationToken = `cm_admin_verified_${Buffer.from(`${userMail}:${timestamp}`).toString("base64")}`;
+      const tokenPayload = `${userMail}:${timestamp}`;
+      const encoded = typeof btoa !== "undefined" ? btoa(tokenPayload) : String(timestamp);
+      const verificationToken = `cm_admin_verified_${encoded}`;
       return { ok: true, token: verificationToken };
     }
 
