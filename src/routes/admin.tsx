@@ -47,6 +47,74 @@ function AdminDashboard() {
   // Filter state
   const [disputeFilter, setDisputeFilter] = useState<string>("ALL");
 
+  // Passcode 2FA State
+  const [passcode, setPasscode] = useState("");
+  const [passcodeError, setPasscodeError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [failedCount, setFailedCount] = useState(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const [isSessionVerified, setIsSessionVerified] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const token = sessionStorage.getItem("campus_mart_admin_verified_token");
+    return Boolean(token && token.startsWith("cm_admin_verified_"));
+  });
+
+  useEffect(() => {
+    if (lockoutRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setFailedCount(0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutRemaining]);
+
+  async function handleVerifyPasscode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passcode.trim() || lockoutRemaining > 0 || verifying) return;
+
+    setVerifying(true);
+    setPasscodeError(null);
+
+    try {
+      const { verifyAdminPasscodeServer } = await import("@/lib/server-admin-auth");
+      const res = await verifyAdminPasscodeServer({
+        data: { passcode: passcode.trim(), userEmail: user?.email || profile?.email || "" },
+      });
+
+      if (res.ok && res.token) {
+        sessionStorage.setItem("campus_mart_admin_verified_token", res.token);
+        setIsSessionVerified(true);
+        setFailedCount(0);
+        setPasscode("");
+        await loadAdminData();
+      } else {
+        const nextFailed = failedCount + 1;
+        setFailedCount(nextFailed);
+        if (nextFailed >= 3) {
+          setLockoutRemaining(300);
+          setPasscodeError("Too many incorrect attempts. System locked for 5 minutes.");
+        } else {
+          setPasscodeError(`Invalid Admin Passcode. (${3 - nextFailed} attempt(s) remaining before 5-minute lockout)`);
+        }
+      }
+    } catch (err: any) {
+      setPasscodeError("Server verification error. Please try again.");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  function lockAdminSession() {
+    sessionStorage.removeItem("campus_mart_admin_verified_token");
+    setIsSessionVerified(false);
+  }
+
   async function loadAdminData() {
     if (!isAdmin) {
       setLoading(false);
@@ -127,8 +195,12 @@ function AdminDashboard() {
   }
 
   useEffect(() => {
-    loadAdminData();
-  }, [user, profile]);
+    if (isAdmin && isSessionVerified) {
+      loadAdminData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, profile, isSessionVerified]);
 
   async function logAudit(action: string, targetType: string, targetId?: string, details?: string) {
     try {
@@ -337,6 +409,13 @@ function AdminDashboard() {
             <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-600 border border-purple-500/20" title="To use live Gemini LLM analysis, set VITE_GEMINI_API_KEY in Vercel environment variables">
               🤖 Gemini AI API: {import.meta.env?.VITE_GEMINI_API_KEY ? "Live API Connected" : "VITE_GEMINI_API_KEY (Rule Fallback)"}
             </span>
+            <button
+              onClick={lockAdminSession}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-foreground border border-border transition flex items-center gap-1"
+              title="Lock Admin Session"
+            >
+              🔒 Lock Session
+            </button>
           </div>
         </div>
 
