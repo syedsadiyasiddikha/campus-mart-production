@@ -3,13 +3,10 @@ import { Bell, Heart, Home, MessageCircle, Plus, Search, User, Menu, X, MapPin, 
 import { useState, type ReactNode } from "react";
 import logo from "@/assets/logo.jpg";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store";
-
+import { useStore, checkIsAdmin } from "@/lib/store";
 
 const NAV = [
   { to: "/dashboard", label: "Home", icon: Home },
-  { to: "/marketplace", label: "Marketplace", icon: ShoppingBag },
-  { to: "/orders", label: "My Orders", icon: Package },
   { to: "/sell", label: "Sell", icon: Plus },
   { to: "/request", label: "Requests", icon: HelpCircle },
   { to: "/lost-found", label: "Lost & Found", icon: MapPin },
@@ -19,15 +16,8 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { user, profile, isAuthenticated } = useStore();
+  const { user, profile } = useStore();
   const isAdmin = checkIsAdmin(user, profile);
-
-  const visibleNav = NAV.filter((n) => {
-    if (!isAuthenticated && (n.to === "/marketplace" || n.to === "/orders")) {
-      return false;
-    }
-    return true;
-  });
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -43,7 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
 
             <nav className="hidden lg:flex items-center gap-1 ml-4">
-              {visibleNav.map((n) => {
+              {NAV.map((n) => {
                 const active = pathname === n.to;
                 return (
                   <Link
@@ -105,7 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {open && (
             <div className="lg:hidden pb-3 grid grid-cols-2 gap-1 animate-in fade-in">
-              {visibleNav.map((n) => {
+              {NAV.map((n) => {
                 const Icon = n.icon;
                 return (
                   <Link

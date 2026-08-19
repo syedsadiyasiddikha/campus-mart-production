@@ -41,16 +41,6 @@ function Landing() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
-            {isAuthenticated && (
-              <>
-                <Link to="/marketplace" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
-                  Marketplace
-                </Link>
-                <Link to="/orders" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
-                  My Orders
-                </Link>
-              </>
-            )}
             {isAdmin && (
               <Link to="/admin" className="text-sm font-medium text-orange hover:text-orange/80 transition hidden sm:block">
                 Admin
