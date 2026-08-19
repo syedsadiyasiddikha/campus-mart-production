@@ -411,3 +411,6 @@ DO $$ BEGIN
   CREATE POLICY "Authenticated users insert AI logs" ON public.ai_decision_logs FOR INSERT TO authenticated
   WITH CHECK (true);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Auto-promote admin profiles to role='admin'
+UPDATE public.profiles SET role = 'admin' WHERE email LIKE '%admin%' OR role = 'admin';

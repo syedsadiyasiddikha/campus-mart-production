@@ -3,6 +3,7 @@ import { Shield, Tag, Truck, Leaf, ArrowRight, Sparkles } from "lucide-react";
 import logo from "@/assets/logo.jpg";
 import hero from "@/assets/hero.jpg";
 import { SiteFooter } from "@/components/AppShell";
+import { useStore, checkIsAdmin } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,6 +25,9 @@ const features = [
 ];
 
 function Landing() {
+  const { user, profile, isAuthenticated } = useStore();
+  const isAdmin = checkIsAdmin(user, profile);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top bar */}
@@ -37,24 +41,41 @@ function Landing() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
-            <Link to="/marketplace" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
-              Marketplace
-            </Link>
-            <Link to="/orders" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
-              My Orders
-            </Link>
-            <Link to="/admin" className="text-sm font-medium text-orange hover:text-orange/80 transition hidden sm:block">
-              Admin
-            </Link>
-            <Link to="/auth" className="text-sm font-medium text-foreground hover:text-brand transition px-3 py-2">
-              Sign in
-            </Link>
-            <Link
-              to="/auth"
-              className="text-sm font-semibold gradient-brand text-primary-foreground px-4 py-2 rounded-full hover:opacity-90 transition shadow-md"
-            >
-              Get Started
-            </Link>
+            {isAuthenticated && (
+              <>
+                <Link to="/marketplace" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
+                  Marketplace
+                </Link>
+                <Link to="/orders" className="text-sm font-medium text-muted-foreground hover:text-foreground transition hidden sm:block">
+                  My Orders
+                </Link>
+              </>
+            )}
+            {isAdmin && (
+              <Link to="/admin" className="text-sm font-medium text-orange hover:text-orange/80 transition hidden sm:block">
+                Admin
+              </Link>
+            )}
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                className="text-sm font-semibold gradient-brand text-primary-foreground px-4 py-2 rounded-full hover:opacity-90 transition shadow-md"
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link to="/auth" className="text-sm font-medium text-foreground hover:text-brand transition px-3 py-2">
+                  Sign in
+                </Link>
+                <Link
+                  to="/auth"
+                  className="text-sm font-semibold gradient-brand text-primary-foreground px-4 py-2 rounded-full hover:opacity-90 transition shadow-md"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

@@ -123,29 +123,65 @@ function mapProductRow(r: any): Product {
 
 
 
+export function checkIsAdminEmail(email?: string): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  const configured = (
+    (typeof import.meta !== "undefined" && import.meta.env?.VITE_ADMIN_EMAIL) ||
+    ""
+  ).trim().toLowerCase();
+  return (
+    e.includes("admin") ||
+    (configured.length > 0 && (e === configured || e.includes(configured)))
+  );
+}
+
+export function checkIsAdmin(user: { email?: string } | null, profile: Profile | null): boolean {
+  if (!user && !profile) return false;
+  if (profile?.role === "admin") return true;
+  if (user?.email && checkIsAdminEmail(user.email)) return true;
+  if (profile?.email && checkIsAdminEmail(profile.email)) return true;
+  return false;
+}
+
 async function loadProfile(userId: string, email: string): Promise<Profile | null> {
+  let dbRow: any = null;
+
   try {
-    const { data, error } = await supabase.rpc("get_my_profile");
-    if (!error && data) {
-      const row: any = Array.isArray(data) ? data[0] : data;
-      if (row && row.name) {
-        const prof: Profile = {
-          photo: row.photo_url ?? undefined,
-          name: row.name,
-          email: email,
-          department: row.department ?? "",
-          year: row.year ?? "1st Year",
-          phone: row.phone ?? "",
-          residence: (row.residence as Profile["residence"]) ?? "Hostel",
-          bio: row.bio ?? "",
-          role: (row.role as "admin" | "user") ?? (email.toLowerCase().includes("admin") ? "admin" : "user"),
-          suspended: Boolean(row.suspended),
-        };
-        return prof;
-      }
-    }
+    const { data: profData } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (profData) dbRow = profData;
   } catch (e) {
-    console.warn("Supabase get_my_profile notice:", e);
+    console.warn("Direct profiles fetch notice:", e);
+  }
+
+  if (!dbRow) {
+    try {
+      const { data, error } = await supabase.rpc("get_my_profile");
+      if (!error && data) {
+        dbRow = Array.isArray(data) ? data[0] : data;
+      }
+    } catch (e) {
+      console.warn("Supabase get_my_profile notice:", e);
+    }
+  }
+
+  const isAdminEmail = checkIsAdminEmail(email);
+
+  if (dbRow && dbRow.name) {
+    const isRoleAdmin = dbRow.role === "admin" || isAdminEmail;
+    const prof: Profile = {
+      photo: dbRow.photo_url ?? undefined,
+      name: dbRow.name,
+      email: email,
+      department: dbRow.department ?? "",
+      year: dbRow.year ?? "1st Year",
+      phone: dbRow.phone ?? "",
+      residence: (dbRow.residence as Profile["residence"]) ?? "Hostel",
+      bio: dbRow.bio ?? "",
+      role: isRoleAdmin ? "admin" : "user",
+      suspended: Boolean(dbRow.suspended),
+    };
+    return prof;
   }
 
   // Fallback to cached profile if available
@@ -154,7 +190,6 @@ async function loadProfile(userId: string, email: string): Promise<Profile | nul
 
   // Default initial profile for authenticated user
   const fallbackName = email.split("@")[0] || "Student";
-  const isAdmin = email.toLowerCase().includes("admin");
   return {
     name: fallbackName,
     email: email,
@@ -163,7 +198,7 @@ async function loadProfile(userId: string, email: string): Promise<Profile | nul
     phone: "",
     residence: "Hostel",
     bio: "",
-    role: isAdmin ? "admin" : "user",
+    role: isAdminEmail ? "admin" : "user",
     suspended: false,
   };
 }

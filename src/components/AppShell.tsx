@@ -19,7 +19,15 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { user, profile } = useStore();
+  const { user, profile, isAuthenticated } = useStore();
+  const isAdmin = checkIsAdmin(user, profile);
+
+  const visibleNav = NAV.filter((n) => {
+    if (!isAuthenticated && (n.to === "/marketplace" || n.to === "/orders")) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -35,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
 
             <nav className="hidden lg:flex items-center gap-1 ml-4">
-              {NAV.map((n) => {
+              {visibleNav.map((n) => {
                 const active = pathname === n.to;
                 return (
                   <Link
@@ -49,7 +57,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 );
               })}
-              {(profile?.role === "admin" || user?.email?.toLowerCase().includes("admin")) && (
+              {isAdmin && (
                 <Link
                   to="/admin"
                   className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 ${
@@ -64,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex-1" />
 
             <div className="flex items-center gap-1">
-              {(profile?.role === "admin" || user?.email?.toLowerCase().includes("admin")) && (
+              {isAdmin && (
                 <Link
                   to="/admin"
                   className="lg:hidden p-2 rounded-full text-orange hover:bg-orange/10 transition"
@@ -97,7 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {open && (
             <div className="lg:hidden pb-3 grid grid-cols-2 gap-1 animate-in fade-in">
-              {NAV.map((n) => {
+              {visibleNav.map((n) => {
                 const Icon = n.icon;
                 return (
                   <Link

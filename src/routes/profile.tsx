@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { useStore, type Profile } from "@/lib/store";
+import { useStore, checkIsAdmin, type Profile } from "@/lib/store";
 import { Camera, Check, LogOut, Trash2, ExternalLink, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
@@ -83,7 +83,7 @@ function ProfilePage() {
             <p className="mt-1 text-muted-foreground text-sm">Update your details so other students can recognise you.</p>
           </div>
           <div className="flex items-center gap-2">
-            {(profile?.role === "admin" || user?.email?.toLowerCase().includes("admin")) && (
+            {checkIsAdmin(user, profile) && (
               <button
                 onClick={() => navigate({ to: "/admin" })}
                 className="h-10 px-4 rounded-lg bg-orange text-white text-sm font-semibold flex items-center gap-1.5 shadow-sm hover:opacity-90 transition"

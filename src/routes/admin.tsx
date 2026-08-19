@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { RequireProfile } from "@/components/RequireProfile";
-import { useStore } from "@/lib/store";
+import { useStore, checkIsAdmin } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ShieldCheck,
@@ -34,9 +34,7 @@ function AdminDashboard() {
   const { user, profile } = useStore();
   const navigate = useNavigate();
 
-  const isAdmin =
-    profile?.role === "admin" ||
-    (user?.email && user.email.toLowerCase().includes("admin"));
+  const isAdmin = checkIsAdmin(user, profile);
 
   const [tab, setTab] = useState<"disputes" | "reports" | "audit">("disputes");
 
